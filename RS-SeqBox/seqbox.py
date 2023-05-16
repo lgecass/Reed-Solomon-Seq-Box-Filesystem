@@ -122,7 +122,6 @@ class SbxBlock():
         return block
 
     def decode(self, buffer):
-        print("BUFFER IN DECODE", buffer)
         redundant_rs_code_datasize=64
         #start setting an invalid block number
         self.blocknum = -1
@@ -130,20 +129,15 @@ class SbxBlock():
         if self.encdec:
             buffer = self.encdec.xor(buffer)
         #check the basics
-        if len(buffer) != self.blocksize-redundant_rs_code_datasize:#maybe -64
-            print("bad block size")
-            #raise SbxDecodeError("bad block size")
         if buffer[:3] != self.magic[:3]:
-            print("self magic bad")
-            #raise SbxDecodeError("not an SBX block")
+            raise SbxDecodeError("not an SBX block")
         if not buffer[3] in supported_vers:
-            print("not supported version")
-            #raise SbxDecodeError("block v%i not supported" % buffer[3])
+           raise SbxDecodeError("block v%i not supported" % buffer[3])
 
         #check CRC of rest of the block
-        crc = int.from_bytes(buffer[4:6], byteorder='big') 
-        if crc != binascii.crc_hqx(buffer[6:], self.ver):
-            print("bad CRC")
+        #crc = int.from_bytes(buffer[4:6], byteorder='big') 
+        #if crc != binascii.crc_hqx(buffer[6:], self.ver):
+            #print("bad CRC")
             #raise SbxDecodeError("bad CRC")
 
         self.parent_uid = 0
@@ -151,7 +145,7 @@ class SbxBlock():
         self.uid = buffer[6:12]
         self.blocknum = int.from_bytes(buffer[12:16], byteorder='big') 
         self.data = buffer[16:]
-        print("SELF DATA,",self.data)
+       
 
         self.metadata = {}
 

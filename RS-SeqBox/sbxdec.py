@@ -112,7 +112,6 @@ def main():
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
-    print("Buffer Read in decoding !HEADER!", buffer)
 
     try:
         sbx.decode(buffer)
@@ -205,39 +204,27 @@ def main():
             break
 
         try:
-            print("Blocknumber", blocknumber)
+
             blocknumber=blocknumber+1
-            #maybe -64
-            print("Bufferread in Decoding", buffer,"\n")
-            print("data block without sbx header" ,buffer[16:],"\n")
-            print(hex(buffer[-1]))
             #search for first occurence of "0x1a" and cut to there
-            print("Current Size of blocks",str(blocknumber*512+512))
-            print("filesize:",sbxfilesize)
             if hex(buffer[-1])==hex(26) and (blocknumber*512+512)==sbxfilesize:
                 count_of_EOF = 0
                 for i in range(1,len(buffer)):
-                    #print(hex(buffer[-i]))
                     if hex(buffer[-i]) == hex(26):
                         count_of_EOF = count_of_EOF+1
                     else:
-                        print(hex(buffer[-count_of_EOF-1]))
                         break
-                print(buffer[16:-count_of_EOF])
                 rsc_decoded = rsc.decode(buffer[16:-count_of_EOF])[0]
-                #print(sbx.blocksize)
-                #rsc_decoded = rsc_decoded[0] + b'\x1A' * (sbx.blocksize - len(rsc_decoded[0]))
             else:           
                 rsc_decoded = rsc.decode(buffer[16:])[0]    
-            #print("LENNNN",len(rsc_decoded))
+          
             
-            print("data block decoded:",bytes(rsc_decoded),"\n")
+           
             rsc_decoded = bytes(buffer[:16])+bytes(rsc_decoded)
-            print("buffer RSC decoded:",rsc_decoded,"\n")
+           
             sbx.decode(rsc_decoded)
 
             if sbx.blocknum > lastblocknum+1:
-                print("lastblocknum")
                 if cmdline.cont:
                     blockmiss += 1
                     lastblocknum += 1
@@ -245,19 +232,9 @@ def main():
                     errexit(errlev=1, mess="block %i out of order or missing"
                              % (lastblocknum+1))    
             lastblocknum += 1
-            if trimfilesize:
-                filesize += sbx.datasize
-                print("Filesize",filesize)
-                print("metadata",metadata["filesize"])
-                if filesize > metadata["filesize"]:
-                    print("cropping")
-                    #sbx.data = sbx.data[:-(filesize - metadata["filesize"])]
-                    #print(sbx.data)
             if hashcheck:
                 d.update(sbx.data) 
             if not cmdline.test:
-                print("Writing the below to file")
-                print(sbx.data)
                 fout.write(sbx.data)
 
         except seqbox.SbxDecodeError as err:
