@@ -48,6 +48,7 @@ from os import fsencode, fsdecode
 from collections import defaultdict
 import trio
 
+
 import faulthandler
 faulthandler.enable()
 
@@ -58,17 +59,19 @@ def check_integrity(path_to_file):
     
     #Creates shielded File in the mirror directory
 def create_shielded_version_of_file(path_to_file):
+    print("PATH:",path_to_file)
     print("Creating shielded version of File")
     #copying File
        
     shutil.copyfile(path_to_file,path_to_file+".sb.rs")
     #encoding file
-    os.system("SeqBox/sbxenc.py "+path_to_file)
+    
+    os.system("python RS-SeqBox/sbxenc.py "+path_to_file)
     print("file encoded")
 
 def unshield_file(path_to_file):
     print("Unshielding file")
-    os.system("SeqBox/sbxdec.py "+path_to_file)
+    os.system("python RS-SeqBox/sbxdec.py "+path_to_file)
 
 
 
@@ -481,6 +484,8 @@ class Operations(pyfuse3.Operations):
         inode = self._fd_inode_map[fd]
         path_to_file = self._inode_to_path(inode)
         print("type: ",type(path_to_file))
+
+
         #print("path0 ",path_to_file[0])
         #print("path1 ",path_to_file[1])
 

@@ -122,6 +122,7 @@ class SbxBlock():
         return block
 
     def decode(self, buffer):
+        print("BUFFER IN DECODE", buffer)
         redundant_rs_code_datasize=64
         #start setting an invalid block number
         self.blocknum = -1
@@ -150,6 +151,7 @@ class SbxBlock():
         self.uid = buffer[6:12]
         self.blocknum = int.from_bytes(buffer[12:16], byteorder='big') 
         self.data = buffer[16:]
+        print("SELF DATA,",self.data)
 
         self.metadata = {}
 
