@@ -200,17 +200,35 @@ def main():
     rsc=RSCodec(32)
     blocknumber=0 
     while True:
-        
+        buffer = fin.read(sbx.blocksize)
         if len(buffer) < sbx.blocksize:
             break
 
         try:
             print("Blocknumber", blocknumber)
             blocknumber=blocknumber+1
-            buffer = fin.read(sbx.blocksize)#maybe -64
+            #maybe -64
             print("Bufferread in Decoding", buffer,"\n")
             print("data block without sbx header" ,buffer[16:],"\n")
-            rsc_decoded = rsc.decode(buffer[16:])
+            print(hex(buffer[-1]))
+            if hex(buffer[-1])==hex(26):
+                count_of_EOF = 0
+                for i in range(1,len(buffer)):
+                    #print(hex(buffer[-i]))
+                    if hex(buffer[-i]) == hex(26):
+                        count_of_EOF = count_of_EOF+1
+                    else:
+                        print(hex(buffer[-count_of_EOF-1]))
+                        break
+                print(buffer[16:-count_of_EOF])
+                rsc_decoded = rsc.decode(buffer[16:-count_of_EOF])
+            else:           
+                rsc_decoded = rsc.decode(buffer[16:])    
+            #search for last occurence of "0x1a" and cut
+            
+
+
+            
             print("data block decoded:",bytes(rsc_decoded[0]),"\n")
             rsc_decoded = bytes(buffer[:16])+bytes(rsc_decoded[0])
             print("buffer RSC decoded:",rsc_decoded,"\n")
