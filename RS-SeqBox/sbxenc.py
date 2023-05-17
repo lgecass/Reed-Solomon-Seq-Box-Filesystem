@@ -54,6 +54,7 @@ def get_cmdline():
                         help="exclude matadata block")
     parser.add_argument("-uid", action="store", default="r", type=str,
                         help="use random or custom UID (up to 12 hexdigits)")
+    
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
     parser.add_argument("-p", "--password", type=str, default="",
@@ -79,13 +80,13 @@ def getsha256(filename):
     return d.digest()
 
 
-def main():
+def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password=""):
+    
+    #cmdline = get_cmdline()
 
-    cmdline = get_cmdline()
-
-    filename = cmdline.filename
+    filename = filename
     print("Got this from command line normal:",filename)
-    sbxfilename = cmdline.sbxfilename
+    sbxfilename = None
     print("got this sbxfilename from command", sbxfilename)
     if not sbxfilename:
         print("not sbxfile")
@@ -96,11 +97,11 @@ def main():
     elif os.path.isdir(sbxfilename):
         sbxfilename = os.path.join(sbxfilename,
                                    os.path.split(filename)[1] + ".sbx")
-    if os.path.exists(sbxfilename) and not cmdline.overwrite:
+    if os.path.exists(sbxfilename) and not overwrite:
         errexit(1, "SBX file '%s' already exists!" % (sbxfilename))
         
     #parse eventual custom uid
-    uid = cmdline.uid
+    
     if uid !="r":
         uid = uid[-12:]
         try:
@@ -117,7 +118,7 @@ def main():
 
     #calc hash - before all processing, and not while reading the file,
     #just to be cautious
-    if not cmdline.nometa:
+    if not nometa:
         print("hashing file '%s'..." % (filename))
         sha256 = getsha256(filename)
         print("SHA256",binascii.hexlify(sha256).decode())
@@ -125,10 +126,10 @@ def main():
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=uid, ver=cmdline.sbxver, pswd=cmdline.password)
+    sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, pswd=password)
     
     #write metadata block 0
-    if not cmdline.nometa:
+    if not nometa:
         sbx.metadata = {"filesize":filesize,
                         "filename":os.path.split(filename)[1],
                         "sbxname":os.path.split(sbxfilename)[1],
@@ -170,7 +171,7 @@ def main():
     fin.close()
     fout.close()
 
-    totblocks = sbx.blocknum if cmdline.nometa else sbx.blocknum + 1
+    totblocks = sbx.blocknum if nometa else sbx.blocknum + 1
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
@@ -178,4 +179,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    print("Module, no main!")

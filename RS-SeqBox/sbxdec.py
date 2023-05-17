@@ -78,12 +78,9 @@ def lastEofCount(data):
     return count
 
 
-def main():
+def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
 
-    cmdline = get_cmdline()
-
-    sbxfilename = cmdline.sbxfilename
-    filename = cmdline.filename
+    filename = sbxfilename.split(".sbx")[0]
 
     if not os.path.exists(sbxfilename):
         errexit(1, "sbx file '%s' not found" % (sbxfilename))
@@ -95,14 +92,15 @@ def main():
     #check magic and get version
     header = fin.read(4)
     fin.seek(0, 0)
-    if cmdline.password:
-        e = seqbox.EncDec(cmdline.password, len(header))
+    if password:
+        e = seqbox.EncDec(password, len(header))
         header= e.xor(header)
     if header[:3] != b"SBx":
+        print(header[:3])
         errexit(1, "not a SeqBox file!")
     sbxver = header[3]
     
-    sbx = seqbox.SbxBlock(ver=sbxver, pswd=cmdline.password)
+    sbx = seqbox.SbxBlock(ver=sbxver, pswd=password)
     metadata = {}
     trimfilesize = False
 
@@ -116,7 +114,7 @@ def main():
     try:
         sbx.decode(buffer)
     except seqbox.SbxDecodeError as err:
-        if cmdline.cont == False:
+        if cont == False:
             print(err)
             errexit(errlev=1, mess="invalid block at offset 0x0")
 
@@ -140,7 +138,7 @@ def main():
         fin.seek(0, 0)
 
     #display some info and stop
-    if cmdline.info:
+    if info:
         print("\nSeqBox container info:")
         print("  file size: %i bytes" % (sbxfilesize))
         print("  blocks: %i" % (sbxfilesize / sbx.blocksize))
@@ -171,7 +169,7 @@ def main():
         sys.exit(0)
 
     #evaluate target filename
-    if not cmdline.test:
+    if not test:
         if not filename:
             if "filename" in metadata:
                 filename = metadata["filename"]
@@ -184,7 +182,7 @@ def main():
                 filename = os.path.join(filename,
                                         os.path.split(sbxfilename)[1] + ".out")
 
-        if os.path.exists(filename) and not cmdline.overwrite:
+        if os.path.exists(filename) and not overwrite:
             errexit(1, "target file '%s' already exists!" % (filename)) 
         print("creating file '%s'..." % (filename))
         fout= open(filename, "wb", buffering=1024*1024)
@@ -234,11 +232,11 @@ def main():
             lastblocknum += 1
             if hashcheck:
                 d.update(sbx.data) 
-            if not cmdline.test:
+            if not test:
                 fout.write(sbx.data)
 
         except seqbox.SbxDecodeError as err:
-            if cmdline.cont:
+            if cont:
                 blockmiss += 1
                 lastblocknum += 1
             else:
@@ -253,7 +251,7 @@ def main():
             updatetime = time.time() + .1
 
     fin.close()
-    if not cmdline.test:
+    if not test:
         fout.close()
         if metadata:
             if "filedatetime" in metadata:
