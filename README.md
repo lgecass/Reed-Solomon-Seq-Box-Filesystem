@@ -7,4 +7,4 @@ pip install reedsolo
 <br/>
 pip install pyfuse3
 <br/>
-Execute with python ./RS-SeqBox/Sbx_Rsc_filesystem.py
+Execute with python ./RS-SeqBox/Sbx_Rsc_filesystem.py sourcemount destinationmount
