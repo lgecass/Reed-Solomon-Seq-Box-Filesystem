@@ -1,5 +1,5 @@
 # Reed-Solomon-Seq-Box-Filesystem
-A filesystem enhanced with Reed-Solomon Data error correction and Seq-Box data block recognition
+A data recovery focused filesystem enhanced with Reed-Solomon Data error correction and Seq-Box data block recognition
 
 Installation
 <br/>
