@@ -118,20 +118,13 @@ def create_shielded_version_of_file(path_to_file):
         if check_integrity(path_to_file):
             return           
         print("Hash of Files dont match")
-    sbxenc.encode(path_to_file)
-    print("PATH:",str(path_to_file))
     print("Creating shielded version of File")
-    #copying File
-       
-    #shutil.copyfile(path_to_file,path_to_file+".sbx")
-    #encoding file
-
-    #os.system("python RS-SeqBox/sbxenc.py -o "+str(path_to_file) +" "+str(path_to_file)+".sbx")
+    sbxenc.encode(path_to_file)    
     print("file encoded")
 
 def unshield_file(path_to_file):
     print("Unshielding file")
-    os.system("python RS-SeqBox/sbxdec.py -o"+path_to_file)
+    sbxdec.decode(path_to_file, overwrite=True)
 
 
 

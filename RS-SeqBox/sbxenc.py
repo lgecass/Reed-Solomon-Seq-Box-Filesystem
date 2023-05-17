@@ -81,13 +81,8 @@ def getsha256(filename):
 
 
 def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password=""):
-    
-    #cmdline = get_cmdline()
-
     filename = filename
-    print("Got this from command line normal:",filename)
     sbxfilename = None
-    print("got this sbxfilename from command", sbxfilename)
     if not sbxfilename:
         print("not sbxfile")
         sbxfilename = os.path.split(filename)[0]+"/"+os.path.split(filename)[1] + ".sbx"
@@ -142,19 +137,19 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     ticks = 0
     updatetime = time() 
     blocknumber=0
-    rsc = RSCodec(32)
+    redundancy_amount=32
+    rsc = RSCodec(redundancy_amount)
     while True:
-        
-       
         blocknumber = blocknumber+1
-        
-        buffer = fin.read(sbx.datasize-64)
+        #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
+        buffer = fin.read(sbx.datasize-(redundancy_amount*2))
       
 
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
                 break
         sbx.blocknum += 1
+        #encode buffer with rsc
         buffer=bytes(rsc.encode(buffer))
       
 

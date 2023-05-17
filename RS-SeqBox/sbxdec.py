@@ -194,7 +194,8 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     filesize = 0
     blockmiss = 0
     updatetime = time.time()
-    rsc=RSCodec(32)
+    redundandcy_amount=32
+    rsc=RSCodec(redundandcy_amount)
     blocknumber=0 
     while True:
         buffer = fin.read(sbx.blocksize)
