@@ -31,6 +31,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import os
 import sys
 import shutil
+import hashlib
+from functools import partial
 # If we are running from the pyfuse3 source directory, try
 # to load the module from there first.
 basedir = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
@@ -53,25 +55,80 @@ import faulthandler
 faulthandler.enable()
 
 log = logging.getLogger(__name__)
+def getsha256(filename):
+    """SHA256 used to verify the integrity of the encoded file"""
+    with open(filename, mode='rb') as fin:
+        d = hashlib.sha256()
+        for buf in iter(partial(fin.read, 1024*1024), b''):
+            d.update(buf)
+    return d.digest()
 #Checks integrity of any File  
 def check_integrity(path_to_file):
-    print("Checking integrity of {file}".encode(file=path_to_file))
+    print("Checking integrity of ", path_to_file)
+    if not os.path.exists(path_to_file):
+        print(1, "sbx file '%s' not found" % (path_to_file))
+        return
+    fin = open(path_to_file, "rb", buffering=1024*1024)
+    buffer = fin.read(512)
+    header = fin.read(4)
+    buffer = buffer[16:]
+    if header[:3] != b"SBx":
+        print(1, "not a SeqBox file!")
+        return
+    metadata = {}
+    p=0
+    while p < (len(buffer)-3):
+        metaid = buffer[p:p+3]
+        p+=3
+        if metaid == b"\x1a\x1a\x1a":
+            break
+        else:
+            metalen = buffer[p]
+            metabb = buffer[p+1:p+1+metalen]
+            p = p + 1 + metalen    
+            if metaid == b'FNM':
+                metadata["filename"] = metabb.decode('utf-8')
+            if metaid == b'SNM':
+                metadata["sbxname"] = metabb.decode('utf-8')
+            if metaid == b'FSZ':
+                metadata["filesize"] = int.from_bytes(metabb, byteorder='big')
+            if metaid == b'FDT':
+                metadata["filedatetime"] = int.from_bytes(metabb, byteorder='big')
+            if metaid == b'SDT':
+                metadata["sbxdatetime"] = int.from_bytes(metabb, byteorder='big')
+            if metaid == b'HSH':
+                metadata["hash"] = metabb
+    if "hash" in metadata:
+        hashtype = metadata["hash"][0]
+        if hashtype == 0x12:
+            hashlen = metadata["hash"][1]
+            hash_of_sbx_file_decoded = metadata["hash"][2:2+hashlen]  
+            d = hashlib.sha256()
+    if hash_of_sbx_file_decoded == getsha256(path_to_file.split(".sbx")[0]):
+        return True
+    return False
+
     
     #Creates shielded File in the mirror directory
 def create_shielded_version_of_file(path_to_file):
+    #check if hash is equal
+    if path_to_file.endswith(".sbx"):
+        if check_integrity(path_to_file):
+            return           
+        print("Hash of Files dont match")
     print("PATH:",path_to_file)
     print("Creating shielded version of File")
     #copying File
        
-    shutil.copyfile(path_to_file,path_to_file+".sb.rs")
+    #shutil.copyfile(path_to_file,path_to_file+".sbx")
     #encoding file
-    
-    os.system("python RS-SeqBox/sbxenc.py "+path_to_file)
+
+    os.system("python RS-SeqBox/sbxenc.py -o "+path_to_file +" "+path_to_file+".sbx")
     print("file encoded")
 
 def unshield_file(path_to_file):
     print("Unshielding file")
-    os.system("python RS-SeqBox/sbxdec.py "+path_to_file)
+    os.system("python RS-SeqBox/sbxdec.py -o"+path_to_file)
 
 
 
@@ -492,7 +549,6 @@ class Operations(pyfuse3.Operations):
         del self._inode_fd_map[inode]
         del self._fd_inode_map[fd]
         try:
-            print("Creating shielded version of File")
             print("file is here", self._inode_to_path(inode))
             os.close(fd)
             self.path_to_file = path_to_file

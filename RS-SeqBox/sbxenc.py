@@ -84,9 +84,15 @@ def main():
     cmdline = get_cmdline()
 
     filename = cmdline.filename
+    print("Got this from command line normal:",filename)
     sbxfilename = cmdline.sbxfilename
+    print("got this sbxfilename from command", sbxfilename)
     if not sbxfilename:
-        sbxfilename = os.path.split(filename)[1] + ".sbx"
+        print("not sbxfile")
+        sbxfilename = os.path.split(filename)[0]+"/"+os.path.split(filename)[1] + ".sbx"
+        path_to_normal_file = os.path.split(filename)
+         
+        print("not sbx and new:", os.path.split(filename)[0]+sbxfilename)
     elif os.path.isdir(sbxfilename):
         sbxfilename = os.path.join(sbxfilename,
                                    os.path.split(filename)[1] + ".sbx")
@@ -104,8 +110,9 @@ def main():
 
     if not os.path.exists(filename):
         errexit(1, "file '%s' not found" % (filename))
+    print("normal filename:", filename)
     filesize = os.path.getsize(filename)
-
+    print("fout:", sbxfilename)
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
@@ -114,7 +121,7 @@ def main():
         print("hashing file '%s'..." % (filename))
         sha256 = getsha256(filename)
         print("SHA256",binascii.hexlify(sha256).decode())
-
+    print("fin:", filename)
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
@@ -137,18 +144,18 @@ def main():
     rsc = RSCodec(32)
     while True:
         
-        print("blocknumber",blocknumber)
+       
         blocknumber = blocknumber+1
         
         buffer = fin.read(sbx.datasize-64)
-        print("BUFFER INPUT", buffer)
+      
 
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
                 break
         sbx.blocknum += 1
         buffer=bytes(rsc.encode(buffer))
-        print("Buffer RSC encoded", buffer)
+      
 
         sbx.data = buffer
         fout.write(sbx.encode())
