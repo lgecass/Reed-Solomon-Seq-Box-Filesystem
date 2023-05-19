@@ -555,8 +555,7 @@ class Operations(pyfuse3.Operations):
                 print("hash normal file", hash_of_normal_file)
                 print("hash sbx", get_hash_of_sbx_file(path_to_file+".sbx"))
                 if hash_of_normal_file != get_hash_of_sbx_file(path_to_file+".sbx"):
-                    create_shielded_version_of_file(path_to_file)
-                    
+                    create_shielded_version_of_file(path_to_file)    
                 else:
                     print("File was released without changes, no need to create sbx file")
         
