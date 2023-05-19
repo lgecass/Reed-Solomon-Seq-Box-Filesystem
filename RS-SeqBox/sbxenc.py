@@ -88,7 +88,7 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
         sbxfilename = os.path.split(filename)[0]+"/"+os.path.split(filename)[1] + ".sbx"
         path_to_normal_file = os.path.split(filename)
          
-        print("not sbx and new:", os.path.split(filename)[0]+sbxfilename)
+        print("not sbx and new:", sbxfilename)
     elif os.path.isdir(sbxfilename):
         sbxfilename = os.path.join(sbxfilename,
                                    os.path.split(filename)[1] + ".sbx")

@@ -327,11 +327,11 @@ def main():
             lastblock = bnum
 
             #some progress report
-            if time.time() > updatetime or bnum == maxbnum:
-                print("  %.1f%%" % (bnum*100.0/maxbnum), " ",
-                      "(missing blocks: %i)" % missingblocks,
-                      end="\r", flush=True)
-                updatetime = time.time() + .5
+            #if time.time() > updatetime or bnum == maxbnum:
+                #print("  %.1f%%" % (bnum*100.0/maxbnum), " ",
+                      #"(missing blocks: %i)" % missingblocks,
+                     # end="\r", flush=True)
+                #updatetime = time.time() + .5
 
         fout.close()
         #set sbx date&time
