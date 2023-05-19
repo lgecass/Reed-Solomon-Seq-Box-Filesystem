@@ -57,15 +57,16 @@ import faulthandler
 faulthandler.enable()
 
 log = logging.getLogger(__name__)
-def getsha256(filename):
+def get_hash_of_normal_file(path_to_file):
     """SHA256 used to verify the integrity of the encoded file"""
-    with open(filename, mode='rb') as fin:
+    with open(path_to_file, mode='rb') as fin:
         d = hashlib.sha256()
         for buf in iter(partial(fin.read, 1024*1024), b''):
             d.update(buf)
     return d.digest()
+
 #Checks integrity of any File  
-def check_integrity(path_to_file):
+def get_hash_of_sbx_file(path_to_file):
     print("Checking integrity of ", path_to_file)
     if not os.path.exists(path_to_file):
         print(1, "sbx file '%s' not found" % (path_to_file))
@@ -106,16 +107,17 @@ def check_integrity(path_to_file):
             hashlen = metadata["hash"][1]
             hash_of_sbx_file_decoded = metadata["hash"][2:2+hashlen]  
             d = hashlib.sha256()
-    if hash_of_sbx_file_decoded == getsha256(path_to_file.split(".sbx")[0]):
-        return True
-    return False
+            return hash_of_sbx_file_decoded
+    else:
+        return ""
+    
 
     
     #Creates shielded File in the mirror directory
 def create_shielded_version_of_file(path_to_file):
     #check if hash is equal
     if path_to_file.endswith(".sbx"):
-        if check_integrity(path_to_file):
+        if get_hash_of_sbx_file(path_to_file) == get_hash_of_normal_file(path_to_file.split(".sbx")[0]):
             return           
         print("Hash of Files dont match")
     print("Creating shielded version of File")
@@ -135,8 +137,8 @@ class Operations(pyfuse3.Operations):
     def __init__(self, source, access_dir):
         super().__init__()
         self._inode_path_map = { pyfuse3.ROOT_INODE: source }
-        print("access_dir: ", access_dir)
-        self.access_dir=access_dir
+        print("source dir: ", source)
+        self.access_dir=source
         self._lookup_cnt = defaultdict(lambda : 0)
         self._fd_inode_map = dict()
         self._inode_fd_map = dict()
@@ -155,11 +157,11 @@ class Operations(pyfuse3.Operations):
         if isinstance(val, set):
             # In case of hardlinks, pick any path
             val = next(iter(val))
-        print("inode to path ", val)
+     
         return val
 
     def _add_path(self, inode, path):
-        print("_adding path?")
+      
         log.debug('_add_path for %d, %s', inode, path)
         self._lookup_cnt[inode] += 1
 
@@ -540,17 +542,23 @@ class Operations(pyfuse3.Operations):
         path_to_file = self._inode_to_path(inode)
         print("type: ",type(path_to_file))
 
-
-        #print("path0 ",path_to_file[0])
-        #print("path1 ",path_to_file[1])
-
         del self._inode_fd_map[inode]
         del self._fd_inode_map[fd]
         try:
             print("file is here", self._inode_to_path(inode))
             os.close(fd)
             self.path_to_file = path_to_file
-            create_shielded_version_of_file(path_to_file)
+            #Check if after releasing file, changes to the file have been made
+            #if not then it is not neccessary to recreate sbx file
+            if not path_to_file.endswith(".sbx"):
+                hash_of_normal_file = get_hash_of_normal_file(path_to_file)
+                print("hash normal file", hash_of_normal_file)
+                print("hash sbx", get_hash_of_sbx_file(path_to_file+".sbx"))
+                if hash_of_normal_file != get_hash_of_sbx_file(path_to_file+".sbx"):
+                    create_shielded_version_of_file(path_to_file)
+                    
+                else:
+                    print("File was released without changes, no need to create sbx file")
         
         except OSError as exc:
             raise FUSEError(exc.errno)
