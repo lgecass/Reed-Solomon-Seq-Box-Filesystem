@@ -3,6 +3,7 @@ A data preservation and recovery focused filesystem enhanced with Reed-Solomon D
 Files after being placed into the mounted Folder are copied and encoded. <br/>
 Everytime you read it should compare the Hashes between these 2 files and repair the file if needed. <br/>
 The .sbx File represents the original file and is the only file you need to replace your original data. <br/>
+The .sbx file does not depend on the original file. <br/>
 
 ## Installation
 ### Requirements
