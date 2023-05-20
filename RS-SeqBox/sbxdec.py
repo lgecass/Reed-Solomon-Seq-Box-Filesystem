@@ -273,7 +273,7 @@ def main():
 
             blocknumber=blocknumber+1
             #search for first occurence of "0x1a" and cut to there
-            if hex(buffer[-1])==hex(26) and (blocknumber*512+512)==sbxfilesize:
+            if blocknumber*512+512==sbxfilesize:
                 count_of_EOF = 0
                 for i in range(1,len(buffer)):
                     if hex(buffer[-i]) == hex(26):
@@ -282,7 +282,8 @@ def main():
                         break
                 rsc_decoded = rsc.decode(buffer[16:-count_of_EOF])[0]
             else:
-                print("Buffer in 2nd",buffer[16:],"\n")           
+                print("Buffer in 2nd",buffer[16:],"\n")  
+                print("Buffer in 2nd full",buffer,"\n")          
                 rsc_decoded = rsc.decode(buffer[16:])[0]    
           
             

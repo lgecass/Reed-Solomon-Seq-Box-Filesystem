@@ -113,9 +113,6 @@ class SbxBlock():
             if self.datasize - len(self.data) > 64:
                 
                 reed_solomon_redundancy = 32   
-                
-               
-                
                 rsc = RSCodec(int(reed_solomon_redundancy))
 
                 buffer = (self.uid +
@@ -128,7 +125,9 @@ class SbxBlock():
                     block = self.encdec.xor(block)
                 
                 block=bytes(rsc.encode(block))
-                block = block + b'\x1A' * (self.datasize - len(block))
+                
+                block = block + b'\x1A' * (self.blocksize - len(block))
+                print("lEN ENCODING",len(block))
             else:
                 print("Metadata too long")
                 return
