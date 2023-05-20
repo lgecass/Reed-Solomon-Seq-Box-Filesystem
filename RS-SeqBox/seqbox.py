@@ -22,7 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #--------------------------------------------------------------------------
-
+from reedsolo import RSCodec, ReedSolomonError
 import os
 import sys
 import binascii
@@ -109,16 +109,41 @@ class SbxBlock():
                 self.data += b"SDT" + bytes([len(bb)]) + bb
             if "hash" in self.metadata:
                 bb = self.metadata["hash"]
-                self.data += b"HSH" + bytes([len(bb)]) + bb
-        
-        data = self.data + b'\x1A' * (self.datasize - len(self.data))
-        buffer = (self.uid +
+                self.data += b"HSH" + bytes([len(bb)]) + bb           
+            if self.datasize - len(self.data) > 64:
+                
+                reed_solomon_redundancy = 32   
+                
+               
+                
+                rsc = RSCodec(int(reed_solomon_redundancy))
+
+                buffer = (self.uid +
+                  self.blocknum.to_bytes(4, byteorder='big') +
+                  self.data)
+                crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
+                block = self.magic + crc + buffer
+
+                if self.encdec:
+                    block = self.encdec.xor(block)
+                
+                block=bytes(rsc.encode(block))
+                block = block + b'\x1A' * (self.datasize - len(block))
+            else:
+                print("Metadata too long")
+                return
+        else:
+
+            data = self.data + b'\x1A' * (self.datasize - len(self.data))
+            buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   data)
-        crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
-        block = self.magic + crc + buffer
-        if self.encdec:
-            block = self.encdec.xor(block)
+        
+            crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
+
+            block = self.magic + crc + buffer
+            if self.encdec:
+                block = self.encdec.xor(block)
         return block
 
     def decode(self, buffer):

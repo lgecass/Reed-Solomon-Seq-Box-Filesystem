@@ -77,7 +77,41 @@ def lastEofCount(data):
         count +=1
     return count
 
+def bruteforce_possible_broken_padding(buffer,redundandcy_rsc_code):
+    print("Bruteforcing")
+    rsc=RSCodec(redundandcy_rsc_code)
+    amplitude=0
+    amplitude_minus=0
+    i=0
+    while True:
+        if hex(buffer[i])==hex(26):
+                count_of_EOF = i
+                print(count_of_EOF)
+                print(buffer[i])
+                break
+        else:           
+                i+=1   
+    while True:
+        try:
+            print("amp+",i+amplitude)
+            rsc.decode(buffer[:i+amplitude])
+           
+            print("real buffer+:",buffer[:i+amplitude])
+            return i+amplitude
+        except ReedSolomonError as err:
+            amplitude+=1
+            print("Continuing plus")
 
+    
+
+        try:
+            print("amp-",i+amplitude_minus)
+            rsc.decode(buffer[:i-amplitude_minus])
+            print("real buffer-:",buffer[:i-amplitude_minus])
+            return i+amplitude_minus
+        except ReedSolomonError as err:
+            amplitude_minus-=1
+            print("Continuing minus")
 def main():
 
     cmdline = get_cmdline()
@@ -112,13 +146,44 @@ def main():
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
+    redundandcy_rsc_code=32
 
+    rsc=RSCodec(redundandcy_rsc_code)
+    i=0
+    bruteforced_offset=0
+    broken_padding=False
+    while True:
+        if hex(buffer[i])==hex(26):
+            count_until_EOF_=i
+            break
+        else:
+            i+=1
     try:
-        sbx.decode(buffer)
-    except seqbox.SbxDecodeError as err:
-        if cmdline.cont == False:
-            print(err)
-            errexit(errlev=1, mess="invalid block at offset 0x0")
+        print(buffer[:count_until_EOF_],"\n")
+        rsc_decoded = bytes(rsc.decode(buffer[:count_until_EOF_])[0])
+        print() 
+        rsc_decoded_and_added_padding= rsc_decoded + b'\x1A' * (sbx.blocksize-len(rsc_decoded))
+        print(rsc_decoded_and_added_padding)
+        sbx.decode(rsc_decoded_and_added_padding)
+    except ReedSolomonError as rserror:
+        broken_padding=True
+        print("Possible padding broken through corruption, trying bruteforce"+"\n")
+        bruteforced_offset=bruteforce_possible_broken_padding(buffer,redundandcy_rsc_code)  
+        print(rserror)
+    print("iamhere")
+    if broken_padding:
+        try:
+            print("BUFFER",buffer[:bruteforced_offset],"\n")  
+            rsc_decoded = bytes(rsc.decode(buffer[:bruteforced_offset])[0])
+            print(rsc_decoded,"\n")
+            rsc_decoded_and_added_padding= rsc_decoded + b'\x1A' * (sbx.blocksize-len(rsc_decoded))
+            print(rsc_decoded_and_added_padding)
+            sbx.decode(rsc_decoded_and_added_padding)
+
+        except seqbox.SbxDecodeError as err:
+            if cmdline.cont == False:
+                print(err)
+                errexit(errlev=1, mess="invalid block at offset 0x0")
 
     if sbx.blocknum > 1:
         errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
@@ -216,7 +281,8 @@ def main():
                     else:
                         break
                 rsc_decoded = rsc.decode(buffer[16:-count_of_EOF])[0]
-            else:           
+            else:
+                print("Buffer in 2nd",buffer[16:],"\n")           
                 rsc_decoded = rsc.decode(buffer[16:])[0]    
           
             

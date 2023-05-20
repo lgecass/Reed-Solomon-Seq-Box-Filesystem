@@ -57,6 +57,12 @@ import faulthandler
 faulthandler.enable()
 
 log = logging.getLogger(__name__)
+
+def compare_hash_sbxfile_normalfile(normal_file_hash,sbx_file_hash):
+    if(normal_file_hash == sbx_file_hash):
+        return True
+    return False
+
 def get_hash_of_normal_file(path_to_file):
     """SHA256 used to verify the integrity of the encoded file"""
     with open(path_to_file, mode='rb') as fin:
@@ -477,12 +483,26 @@ class Operations(pyfuse3.Operations):
         return stat_
 
     async def open(self, inode, flags, ctx):
+        #Before file is being read it is first opened
+        #check Integrity of file here
         if inode in self._inode_fd_map:
+            
+            print("EARLY OPEN when file descriptor already exists")
+            file_path_of_file_to_open= self._inode_to_path(inode)
+           # if not file_path_of_file_to_open.endswith(".sbx"):
+                #print(file_path_of_file_to_open)
+                #if get_hash_of_normal_file(file_path_of_file_to_open) != get_hash_of_sbx_file(file_path_of_file_to_open+".sbx"):
+                 #   #overwrite normal file with sbx file because corruption found
+                    #Check if hash of sbx file could be corrupted
+                 #   print("corruption found")
+                 #   sbxdec.decode(file_path_of_file_to_open+".sbx",overwrite=True)
+
             fd = self._inode_fd_map[inode]
             self._fd_open_count[fd] += 1
             return pyfuse3.FileInfo(fh=fd)
         assert flags & os.O_CREAT == 0
         try:
+            print("LATE OPEN when file is not opened yet")
             fd = os.open(self._inode_to_path(inode), flags)
         except OSError as exc:
             raise FUSEError(exc.errno)
@@ -515,7 +535,6 @@ class Operations(pyfuse3.Operations):
         return (pyfuse3.FileInfo(fh=fd), attr)
     #normal
     async def read(self, fd, offset, length):
-       
         #check integrity before reading
         #--
         os.lseek(fd, offset, os.SEEK_SET)
@@ -551,10 +570,7 @@ class Operations(pyfuse3.Operations):
             #Check if after releasing file, changes to the file have been made
             #if not then it is not neccessary to recreate sbx file
             if not path_to_file.endswith(".sbx"):
-                hash_of_normal_file = get_hash_of_normal_file(path_to_file)
-                print("hash normal file", hash_of_normal_file)
-                print("hash sbx", get_hash_of_sbx_file(path_to_file+".sbx"))
-                if hash_of_normal_file != get_hash_of_sbx_file(path_to_file+".sbx"):
+                if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx"):
                     create_shielded_version_of_file(path_to_file)    
                 else:
                     print("File was released without changes, no need to create sbx file")

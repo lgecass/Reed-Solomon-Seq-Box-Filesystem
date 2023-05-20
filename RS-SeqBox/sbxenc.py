@@ -131,7 +131,8 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
                         "hash":b'\x12\x20'+sha256} #multihash
-        fout.write(sbx.encode())
+        data_header = sbx.encode()
+        fout.write(data_header)
     
     #write all other blocks
     ticks = 0
@@ -172,6 +173,94 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
           (sbxfilesize, totblocks, overhead))
 
+def main():
+    cmdline = get_cmdline()
+    filename = cmdline.filename
+    sbxfilename = cmdline.sbxfilename
+    if not sbxfilename:
+        sbxfilename = os.path.split(filename)[1] + ".sbx"
+    elif os.path.isdir(sbxfilename):
+        sbxfilename = os.path.join(sbxfilename,
+                                   os.path.split(filename)[1] + ".sbx")
+    if os.path.exists(sbxfilename) and not cmdline.overwrite:
+        errexit(1, "SBX file '%s' already exists!" % (sbxfilename))
+    #parse eventual custom uid
+    
+    if cmdline.uid !="r":
+        uid = uid[-12:]
+        try:
+            uid = int(uid, 16).to_bytes(6, byteorder='big')
+        except:
+            errexit(1, "invalid UID")
+
+    if not os.path.exists(filename):
+        errexit(1, "file '%s' not found" % (filename))
+    print("normal filename:", filename)
+    filesize = os.path.getsize(filename)
+    print("fout:", sbxfilename)
+    fout = open(sbxfilename, "wb", buffering=1024*1024)
+
+    #calc hash - before all processing, and not while reading the file,
+    #just to be cautious
+    if not cmdline.nometa:
+        print("hashing file '%s'..." % (filename))
+        sha256 = getsha256(filename)
+        print("SHA256",binascii.hexlify(sha256).decode())
+    print("fin:", filename)
+    fin = open(filename, "rb", buffering=1024*1024)
+    print("creating file '%s'..." % sbxfilename)
+
+    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, pswd=cmdline.password)
+    
+    #write metadata block 0
+    if not cmdline.nometa:
+        sbx.metadata = {"filesize":filesize,
+                        "filename":os.path.split(filename)[1],
+                        "sbxname":os.path.split(sbxfilename)[1],
+                        "filedatetime":int(os.path.getmtime(filename)),
+                        "sbxdatetime":int(time()),
+                        "hash":b'\x12\x20'+sha256} #multihash
+        fout.write(sbx.encode())
+    
+    #write all other blocks
+    ticks = 0
+    updatetime = time() 
+    blocknumber=0
+    redundancy_amount=32
+    rsc = RSCodec(redundancy_amount)
+    while True:
+        blocknumber = blocknumber+1
+        #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
+        buffer = fin.read(sbx.datasize-(redundancy_amount*2))
+      
+
+        if len(buffer) < sbx.datasize:
+            if len(buffer) == 0:
+                break
+        sbx.blocknum += 1
+        #encode buffer with rsc
+        buffer=bytes(rsc.encode(buffer))
+      
+
+        sbx.data = buffer
+        fout.write(sbx.encode())
+
+        #some progress update
+        if time() > updatetime:
+            print("%.1f%%" % (fin.tell()*100.0/filesize), " ",
+                  end="\r", flush=True)
+            updatetime = time() + .1
+        
+    print("100%  ")
+    fin.close()
+    fout.close()
+
+    totblocks = sbx.blocknum if cmdline.nometa else sbx.blocknum + 1
+    sbxfilesize = totblocks * sbx.blocksize
+    overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
+    print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
+          (sbxfilesize, totblocks, overhead))    
+
 
 if __name__ == '__main__':
-    print("Module, no main!")
+    main()
