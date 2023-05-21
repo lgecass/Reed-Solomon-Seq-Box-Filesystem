@@ -38,13 +38,17 @@ class SbxError(Exception):
 
 class SbxDecodeError(SbxError):
     pass
-
+def encode_header_data_with_rsc(block):
+    reed_solomon_redundancy = 32   
+    rsc = RSCodec(reed_solomon_redundancy)
+    return bytes(rsc.encode(block))
+    
     
 class SbxBlock():
     """
     Implement a basic SBX block
     """
-
+    
     def __init__(self, ver=1, uid="r", pswd=""):
         self.ver = ver
         if ver == 1:
@@ -67,7 +71,6 @@ class SbxBlock():
         self.datasize = self.blocksize - self.hdrsize
         self.magic = b'SBx' + bytes([ver])
         self.blocknum = 0
-        rs_encoding_space=64 #bytes
 
 
         if uid == "r":
@@ -111,10 +114,6 @@ class SbxBlock():
                 bb = self.metadata["hash"]
                 self.data += b"HSH" + bytes([len(bb)]) + bb           
             if self.datasize - len(self.data) > 64:
-                
-                reed_solomon_redundancy = 32   
-                rsc = RSCodec(int(reed_solomon_redundancy))
-
                 buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   self.data)
@@ -123,11 +122,8 @@ class SbxBlock():
 
                 if self.encdec:
                     block = self.encdec.xor(block)
-                
-                block=bytes(rsc.encode(block))
-                
+                block=encode_header_data_with_rsc(block)
                 block = block + b'\x1A' * (self.blocksize - len(block))
-                print("lEN ENCODING",len(block))
             else:
                 print("Metadata too long")
                 return

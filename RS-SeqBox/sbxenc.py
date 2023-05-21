@@ -34,6 +34,13 @@ from time import time
 import seqbox
 
 PROGRAM_VER = "1.0.2"
+def encode_data_block_with_rsc(buffer):
+    redundancy=32
+    rsc=RSCodec(redundancy)
+    return bytes(rsc.encode(buffer))
+    
+
+
 
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
@@ -106,7 +113,6 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
 
     if not os.path.exists(filename):
         errexit(1, "file '%s' not found" % (filename))
-    print("normal filename:", filename)
     filesize = os.path.getsize(filename)
     print("fout:", sbxfilename)
     fout = open(sbxfilename, "wb", buffering=1024*1024)
@@ -139,7 +145,6 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     updatetime = time() 
     blocknumber=0
     redundancy_amount=32
-    rsc = RSCodec(redundancy_amount)
     while True:
         blocknumber = blocknumber+1
         #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
@@ -151,10 +156,7 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
                 break
         sbx.blocknum += 1
         #encode buffer with rsc
-        buffer=bytes(rsc.encode(buffer))
-      
-
-        sbx.data = buffer
+        sbx.data = encode_data_block_with_rsc(buffer)
         fout.write(sbx.encode())
 
         #some progress update
@@ -195,9 +197,7 @@ def main():
 
     if not os.path.exists(filename):
         errexit(1, "file '%s' not found" % (filename))
-    print("normal filename:", filename)
     filesize = os.path.getsize(filename)
-    print("fout:", sbxfilename)
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
@@ -227,22 +227,17 @@ def main():
     updatetime = time() 
     blocknumber=0
     redundancy_amount=32
-    rsc = RSCodec(redundancy_amount)
     while True:
         blocknumber = blocknumber+1
         #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
         buffer = fin.read(sbx.datasize-(redundancy_amount*2))
       
-
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
                 break
         sbx.blocknum += 1
         #encode buffer with rsc
-        buffer=bytes(rsc.encode(buffer))
-      
-
-        sbx.data = buffer
+        sbx.data =encode_data_block_with_rsc(buffer)
         fout.write(sbx.encode())
 
         #some progress update
