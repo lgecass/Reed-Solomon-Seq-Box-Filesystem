@@ -48,6 +48,7 @@ def calculate_size_of_padding_last_block(filesize):
     redundancy_data_addition=len(result)-size_of_data_last_block
 
     length_of_padding=blocksize-size_of_data_last_block - headersize - redundancy_data_addition
+    return length_of_padding
 
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
