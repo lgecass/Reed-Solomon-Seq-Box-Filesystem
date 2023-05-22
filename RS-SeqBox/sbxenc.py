@@ -39,9 +39,6 @@ def encode_data_block_with_rsc(buffer):
     rsc=RSCodec(redundancy)
     return bytes(rsc.encode(buffer))
     
-
-
-
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
     parser = argparse.ArgumentParser(
@@ -69,7 +66,6 @@ def get_cmdline():
     res = parser.parse_args()
     return res
 
-
 def errexit(errlev=1, mess=""):
     """Display an error and exit."""
     if mess != "":
@@ -77,7 +73,6 @@ def errexit(errlev=1, mess=""):
                          (os.path.split(sys.argv[0])[1], mess))
     sys.exit(errlev)
     
-
 def getsha256(filename):
     """SHA256 used to verify the integrity of the encoded file"""
     with open(filename, mode='rb') as fin:
@@ -85,7 +80,6 @@ def getsha256(filename):
         for buf in iter(partial(fin.read, 1024*1024), b''):
             d.update(buf)
     return d.digest()
-
 
 def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password=""):
     filename = filename
@@ -156,7 +150,7 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
                 break
         sbx.blocknum += 1
         #encode buffer with rsc
-        sbx.data = encode_data_block_with_rsc(buffer)
+        sbx.data = buffer
         fout.write(sbx.encode())
 
         #some progress update

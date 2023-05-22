@@ -39,10 +39,18 @@ class SbxError(Exception):
 class SbxDecodeError(SbxError):
     pass
 def encode_header_data_with_rsc(block):
-    reed_solomon_redundancy = 32   
+    reed_solomon_redundancy = 210 
     rsc = RSCodec(reed_solomon_redundancy)
     return bytes(rsc.encode(block))
+def encode_data_block_with_rsc(buffer,bytes_until_block_full=0):
+    if bytes_until_block_full !=0:
+        redundancy=bytes_until_block_full/2
+    print(bytes_until_block_full%2)
+    print(bytes_until_block_full+1%2)
     
+
+    rsc=RSCodec(redundancy)
+    return bytes(rsc.encode(buffer))    
     
 class SbxBlock():
     """
@@ -95,12 +103,12 @@ class SbxBlock():
     def encode(self):
         if self.blocknum == 0:
             self.data = b""
-            if "filename" in self.metadata:
-                bb = self.metadata["filename"].encode()
-                self.data += b"FNM" + bytes([len(bb)]) + bb
-            if "sbxname" in self.metadata:
-                bb = self.metadata["sbxname"].encode()
-                self.data += b"SNM" + bytes([len(bb)]) + bb
+            #if "filename" in self.metadata:
+               # bb = self.metadata["filename"].encode()
+               # self.data += b"FNM" + bytes([len(bb)]) + bb
+            #if "sbxname" in self.metadata:
+                #bb = self.metadata["sbxname"].encode()
+                #self.data += b"SNM" + bytes([len(bb)]) + bb
             if "filesize" in self.metadata:
                 bb = self.metadata["filesize"].to_bytes(8, byteorder='big')
                 self.data += b"FSZ" + bytes([len(bb)]) + bb
@@ -113,26 +121,28 @@ class SbxBlock():
             if "hash" in self.metadata:
                 bb = self.metadata["hash"]
                 self.data += b"HSH" + bytes([len(bb)]) + bb           
-            if self.datasize - len(self.data) > 64:
-                buffer = (self.uid +
+            buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   self.data)
-                crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
-                block = self.magic + crc + buffer
+            crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
+            block = self.magic + crc + buffer
 
-                if self.encdec:
-                    block = self.encdec.xor(block)
-                block=encode_header_data_with_rsc(block)
-                block = block + b'\x1A' * (self.blocksize - len(block))
-            else:
-                print("Metadata too long")
-                return
+            if self.encdec:
+                block = self.encdec.xor(block)
+            block=encode_header_data_with_rsc(block)
+            block = block + b'\x1A' * (self.blocksize - len(block))
         else:
-
-            data = self.data + b'\x1A' * (self.datasize - len(self.data))
             buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   data)
+            if len(self.data) < self.datasize:
+                print("Last Block, encoding")
+                print(self.datasize-len(self.data))
+                bytes_until_block_full=self.datasize-len(self.data)
+                encode_data_block_with_rsc(buffer,bytes_until_block_full)
+            
+            data = self.data + b'\x1A' * (self.datasize - len(self.data))
+            
         
             crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
 

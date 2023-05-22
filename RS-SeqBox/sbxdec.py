@@ -131,6 +131,7 @@ def decode_data_block_with_rsc(buffer,blocknumber,filesize):
     blocknumber+=1
     #search for first occurence of "0x1a" and cut to there
     if blocknumber*512+512==filesize:
+        print("LASTBLOCk")
         if buffer[:-1] != hex(26):
             #try to decode, maybe no occurence of EOF
             return try_decoding_else_bruteforce(buffer,redundancy)      
@@ -153,31 +154,17 @@ def decode_data_block_with_rsc(buffer,blocknumber,filesize):
 
 
 def decode_header_block_with_rsc(buffer,blocksize): 
-    redundancy=32
-    rsc=RSCodec(redundancy) 
-    i=0
-    while True:
-        if hex(buffer[i])==hex(26):
-            count_until_EOF_=i
-            break
-        else:
-            i+=1
-    try:
-        rsc_decoded = bytes(rsc.decode(buffer[:count_until_EOF_])[0])
-        rsc_decoded_and_added_padding= rsc_decoded + b'\x1A' * (blocksize-len(rsc_decoded))
-        return rsc_decoded_and_added_padding
-    except ReedSolomonError as rserror:
-        print("Possible padding broken through corruption, trying bruteforce"+"\n")     
-        bruteforced_offset=bruteforce_possible_broken_padding(buffer,redundancy)  
-        rsc_decoded = bytes(rsc.decode(buffer[:bruteforced_offset])[0])
-        return  (rsc_decoded + b'\x1A' * (blocksize-len(rsc_decoded)))
+    redundancy=210
+    rsc=RSCodec(redundancy)
+    print("BUFF NOT CUT.", buffer)
+    print("BUFF",buffer[:-2])
+    return bytes(rsc.decode(buffer[:-2])[0])
             
 
 
 def main():
-
     cmdline = get_cmdline()
-    
+
     sbxfilename = cmdline.sbxfilename
     filename = cmdline.filename
     if not os.path.exists(sbxfilename):
@@ -195,13 +182,12 @@ def main():
         header= e.xor(header)
     if header[:3] != b"SBx":
         print(header[:3])
-        errexit(1, "not a SeqBox file!")
-    sbxver = header[3]
-    
+        #errexit(1, "not a SeqBox file!")
+    sbxver = 1
     sbx = seqbox.SbxBlock(ver=sbxver, pswd=cmdline.password)
     metadata = {}
     trimfilesize = False
-
+    
     hashtype = 0
     hashlen = 0
     hashdigest = b""
@@ -224,6 +210,7 @@ def main():
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
+        print("FILEEESIZEE",metadata["filesize"])
         
     else:
         #first block is data, so reset from the start
