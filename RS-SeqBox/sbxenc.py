@@ -34,11 +34,21 @@ from time import time
 import seqbox
 
 PROGRAM_VER = "1.0.2"
-def encode_data_block_with_rsc(buffer):
-    redundancy=32
-    rsc=RSCodec(redundancy)
-    return bytes(rsc.encode(buffer))
-    
+def calculate_size_of_padding_last_block(filesize):
+    rsc=RSCodec(34)
+    raw_data_size_read_into_1_block=426
+    size_of_data_last_block=filesize%raw_data_size_read_into_1_block
+
+    result= bytes(rsc.encode(size_of_data_last_block*b'A'))
+
+    blocksize=512
+
+    headersize=16
+
+    redundancy_data_addition=len(result)-size_of_data_last_block
+
+    length_of_padding=blocksize-size_of_data_last_block - headersize - redundancy_data_addition
+
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
     parser = argparse.ArgumentParser(
@@ -123,6 +133,9 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
 
     sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, pswd=password)
     
+    
+
+
     #write metadata block 0
     if not nometa:
         sbx.metadata = {"filesize":filesize,
@@ -199,13 +212,15 @@ def main():
     if not cmdline.nometa:
         print("hashing file '%s'..." % (filename))
         sha256 = getsha256(filename)
+        print("SHAA",sha256)
         print("SHA256",binascii.hexlify(sha256).decode())
     print("fin:", filename)
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
     sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, pswd=cmdline.password)
-    
+
+    length_of_padding=calculate_size_of_padding_last_block(filesize)
     #write metadata block 0
     if not cmdline.nometa:
         sbx.metadata = {"filesize":filesize,
@@ -213,25 +228,25 @@ def main():
                         "sbxname":os.path.split(sbxfilename)[1],
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
-                        "hash":b'\x12\x20'+sha256} #multihash
+                        "hash":b'\x12\x20'+sha256,#multihash
+                        "padding_last_block":length_of_padding} 
         fout.write(sbx.encode())
     
     #write all other blocks
     ticks = 0
     updatetime = time() 
     blocknumber=0
-    redundancy_amount=32
     while True:
         blocknumber = blocknumber+1
         #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
-        buffer = fin.read(sbx.datasize-(redundancy_amount*2))
+        buffer = fin.read(sbx.datasize-70)
       
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
                 break
         sbx.blocknum += 1
         #encode buffer with rsc
-        sbx.data =encode_data_block_with_rsc(buffer)
+        sbx.data = buffer
         fout.write(sbx.encode())
 
         #some progress update

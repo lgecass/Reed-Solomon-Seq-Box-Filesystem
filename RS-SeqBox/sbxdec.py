@@ -75,89 +75,23 @@ def lastEofCount(data):
             break
         count +=1
     return count
-def try_decoding_else_bruteforce(buffer,redundancy,found_EOF=None):
-    rsc=RSCodec(redundancy)
-    if found_EOF == None:
-        try:
-            return (buffer[:16]+bytes(rsc.decode(buffer[16:])[0]))
-        except ReedSolomonError as rserr:
-            print("Block couldn't be repaired:",rserr)
-    try:
-        rsc_decoded_data_block = buffer[:16]+bytes(rsc.decode(buffer[16:found_EOF])[0])
-    except ReedSolomonError as rserr:
-        print(rserr)
-        print("Decoding Error, there is maybe a corruption in EOF, trying to repair")
-        actual_EOF_offset=bruteforce_possible_broken_padding(buffer[16:],redundancy)
-        return (buffer[:16]+bytes(rsc.decode(buffer[16:actual_EOF_offset])[0]))
-   
-def bruteforce_possible_broken_padding(buffer,redundandcy_rsc_code):
-    print("Bruteforcing")
-    rsc=RSCodec(redundandcy_rsc_code)
-    amplitude=0
-    amplitude_minus=0
-    i=0
-    while True:
-        if hex(buffer[i])==hex(26):
-                count_of_EOF = i
-                print(count_of_EOF)
-                print(buffer[i])
-                break
-        else:           
-                i+=1   
-    while True:
-        try:
-            print("amp+",i+amplitude)
-            rsc.decode(buffer[:i+amplitude])
-           
-            print("real buffer+:",buffer[:i+amplitude])
-            return i+amplitude
-        except ReedSolomonError as err:
-            amplitude+=1
-            print("Continuing plus")
 
-    
-
-        try:
-            print("amp-",i+amplitude_minus)
-            rsc.decode(buffer[:i-amplitude_minus])
-            print("real buffer-:",buffer[:i-amplitude_minus])
-            return i+amplitude_minus
-        except ReedSolomonError as err:
-            amplitude_minus-=1
-            print("Continuing minus")
-def decode_data_block_with_rsc(buffer,blocknumber,filesize):
-    redundancy=32
+def decode_data_block_with_rsc(buffer,blocknumber,filesize_sbx_file,padding_size=0):
+    redundancy=34
     rsc=RSCodec(redundancy)
     blocknumber+=1
-    #search for first occurence of "0x1a" and cut to there
-    if blocknumber*512+512==filesize:
-        print("LASTBLOCk")
-        if buffer[:-1] != hex(26):
-            #try to decode, maybe no occurence of EOF
-            return try_decoding_else_bruteforce(buffer,redundancy)      
-        first_occurence_of_EOF=None
-        for i in range(1,len(buffer)):
-            if hex(buffer[i]) == hex(26):
-                    first_occurence_of_EOF = i
-                    break
-        if first_occurence_of_EOF == None:
-            #found no EOF - File size fits perfectly
-            return try_decoding_else_bruteforce(buffer,redundancy)
-        else:
-            #found EOF but not at end of file
-            return try_decoding_else_bruteforce(buffer,redundancy,first_occurence_of_EOF)         
+    if blocknumber*512+512==filesize_sbx_file:
+        rsc_last_block=RSCodec(redundancy)
+        return bytes(rsc_last_block.decode(buffer[:-padding_size])[0])       
     else:
-       #not last block, so no EOF       
-       return (buffer[:16]+bytes(rsc.decode(buffer[16:])[0]))           
+       return bytes(rsc.decode(buffer[:-2])[0])         
 
 
 
 
 def decode_header_block_with_rsc(buffer,blocksize): 
-    redundancy=210
+    redundancy=207
     rsc=RSCodec(redundancy)
-    print("BUFF NOT CUT.", buffer)
-    print("BUFF",buffer[:-2])
     return bytes(rsc.decode(buffer[:-2])[0])
             
 
@@ -210,8 +144,6 @@ def main():
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
-        print("FILEEESIZEE",metadata["filesize"])
-        
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -246,6 +178,7 @@ def main():
                         hashdigest).decode()))
                 else:
                     print("hash type not recognized!")
+            
         sys.exit(0)
 
     #evaluate target filename
@@ -279,7 +212,7 @@ def main():
         if len(buffer) < sbx.blocksize:
             break
         try:
-            buffer=decode_data_block_with_rsc(buffer,sbx.blocknum,sbxfilesize)
+            buffer=decode_data_block_with_rsc(buffer,sbx.blocknum,sbxfilesize,metadata["padding_last_block"])
             blocknumber=blocknumber+1
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:

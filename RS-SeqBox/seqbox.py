@@ -22,14 +22,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #--------------------------------------------------------------------------
-from reedsolo import RSCodec, ReedSolomonError
-import os
-import sys
 import binascii
-import random
 import hashlib
+import os
+import random
+import sys
+
+from reedsolo import ReedSolomonError, RSCodec
 
 supported_vers = [1, 2, 3]
+def encode_header_data_with_rsc(block):
+    reed_solomon_redundancy = 207
+    rsc = RSCodec(reed_solomon_redundancy)
+    return bytes(rsc.encode(block))
+
+def encode_data_block_with_rsc(buffer):
+    rsc=RSCodec(34)
+    return bytes(rsc.encode(buffer))
 
 
 #Some custom exceptions
@@ -38,19 +47,8 @@ class SbxError(Exception):
 
 class SbxDecodeError(SbxError):
     pass
-def encode_header_data_with_rsc(block):
-    reed_solomon_redundancy = 210 
-    rsc = RSCodec(reed_solomon_redundancy)
-    return bytes(rsc.encode(block))
-def encode_data_block_with_rsc(buffer,bytes_until_block_full=0):
-    if bytes_until_block_full !=0:
-        redundancy=bytes_until_block_full/2
-    print(bytes_until_block_full%2)
-    print(bytes_until_block_full+1%2)
-    
 
-    rsc=RSCodec(redundancy)
-    return bytes(rsc.encode(buffer))    
+
     
 class SbxBlock():
     """
@@ -102,6 +100,7 @@ class SbxBlock():
 
     def encode(self):
         if self.blocknum == 0:
+            #Header Block encoding
             self.data = b""
             #if "filename" in self.metadata:
                # bb = self.metadata["filename"].encode()
@@ -120,35 +119,35 @@ class SbxBlock():
                 self.data += b"SDT" + bytes([len(bb)]) + bb
             if "hash" in self.metadata:
                 bb = self.metadata["hash"]
-                self.data += b"HSH" + bytes([len(bb)]) + bb           
+                self.data += b"HSH" + bytes([len(bb)]) + bb
+            if "padding_last_block" in self.metadata:
+                bb = self.metadata["padding_last_block"].to_bytes(2,byteorder="big")
+                self.data += b"PAD" + bytes([len(bb)]) + bb          
             buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   self.data)
             crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
             block = self.magic + crc + buffer
 
-            if self.encdec:
-                block = self.encdec.xor(block)
             block=encode_header_data_with_rsc(block)
             block = block + b'\x1A' * (self.blocksize - len(block))
-        else:
-            buffer = (self.uid +
+        else:   
+            
+                buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
-                  data)
-            if len(self.data) < self.datasize:
-                print("Last Block, encoding")
-                print(self.datasize-len(self.data))
-                bytes_until_block_full=self.datasize-len(self.data)
-                encode_data_block_with_rsc(buffer,bytes_until_block_full)
-            
-            data = self.data + b'\x1A' * (self.datasize - len(self.data))
-            
-        
-            crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
+                  self.data)
+                crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
+                #Assemble whole 512 byte Block
+                block = self.magic + crc + buffer
+                block = encode_data_block_with_rsc(block)
+                block = block + b'\x1A' * (512 - len(block))
 
-            block = self.magic + crc + buffer
-            if self.encdec:
-                block = self.encdec.xor(block)
+                
+                
+            
+           
+
+
         return block
 
     def decode(self, buffer):
@@ -203,6 +202,8 @@ class SbxBlock():
                         self.metadata["sbxdatetime"] = int.from_bytes(metabb, byteorder='big')
                     if metaid == b'HSH':
                         self.metadata["hash"] = metabb
+                    if metaid == b'PAD':
+                        self.metadata["padding_last_block"] = int.from_bytes(metabb,byteorder='big')
         return True
 
 
