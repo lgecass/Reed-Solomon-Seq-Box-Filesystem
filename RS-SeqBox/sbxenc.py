@@ -94,19 +94,14 @@ def getsha256(filename):
 
 def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password=""):
     filename = filename
-    sbxfilename = None
+    sbxfilename = sbxfilename
     if not sbxfilename:
-        print("not sbxfile")
-        sbxfilename = os.path.split(filename)[0]+"/"+os.path.split(filename)[1] + ".sbx"
-        path_to_normal_file = os.path.split(filename)
-         
-        print("not sbx and new:", sbxfilename)
+        sbxfilename = os.path.split(filename)[1] + ".sbx"
     elif os.path.isdir(sbxfilename):
         sbxfilename = os.path.join(sbxfilename,
                                    os.path.split(filename)[1] + ".sbx")
     if os.path.exists(sbxfilename) and not overwrite:
         errexit(1, "SBX file '%s' already exists!" % (sbxfilename))
-        
     #parse eventual custom uid
     
     if uid !="r":
@@ -119,7 +114,6 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     if not os.path.exists(filename):
         errexit(1, "file '%s' not found" % (filename))
     filesize = os.path.getsize(filename)
-    print("fout:", sbxfilename)
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
@@ -127,16 +121,15 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     if not nometa:
         print("hashing file '%s'..." % (filename))
         sha256 = getsha256(filename)
+        print("SHAA",sha256)
         print("SHA256",binascii.hexlify(sha256).decode())
     print("fin:", filename)
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
     sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, pswd=password)
-    
-    
 
-
+    length_of_padding=calculate_size_of_padding_last_block(filesize)
     #write metadata block 0
     if not nometa:
         sbx.metadata = {"filesize":filesize,
@@ -144,21 +137,19 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
                         "sbxname":os.path.split(sbxfilename)[1],
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
-                        "hash":b'\x12\x20'+sha256} #multihash
-        data_header = sbx.encode()
-        fout.write(data_header)
+                        "hash":b'\x12\x20'+sha256,#multihash
+                        "padding_last_block":length_of_padding} 
+        fout.write(sbx.encode())
     
     #write all other blocks
     ticks = 0
     updatetime = time() 
     blocknumber=0
-    redundancy_amount=32
     while True:
         blocknumber = blocknumber+1
         #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
-        buffer = fin.read(sbx.datasize-(redundancy_amount*2))
+        buffer = fin.read(sbx.datasize-70)
       
-
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
                 break
@@ -181,7 +172,7 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
-          (sbxfilesize, totblocks, overhead))
+          (sbxfilesize, totblocks, overhead))    
 
 def main():
     cmdline = get_cmdline()

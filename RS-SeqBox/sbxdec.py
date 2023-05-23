@@ -87,14 +87,11 @@ def decode_data_block_with_rsc(buffer,blocknumber,filesize_sbx_file,padding_size
        return bytes(rsc.decode(buffer[:-2])[0])         
 
 
-
-
 def decode_header_block_with_rsc(buffer,blocksize): 
     redundancy=207
     rsc=RSCodec(redundancy)
     return bytes(rsc.decode(buffer[:-2])[0])
             
-
 
 def main():
     cmdline = get_cmdline()
@@ -273,8 +270,8 @@ def main():
     
 def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
 
-    filename = sbxfilename.split(".sbx")[0]
-
+    sbxfilename = sbxfilename
+    filename = filename
     if not os.path.exists(sbxfilename):
         errexit(1, "sbx file '%s' not found" % (sbxfilename))
     sbxfilesize = os.path.getsize(sbxfilename)
@@ -290,27 +287,21 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         header= e.xor(header)
     if header[:3] != b"SBx":
         print(header[:3])
-        errexit(1, "not a SeqBox file!")
-    sbxver = header[3]
-    
+        #errexit(1, "not a SeqBox file!")
+    sbxver = 1
     sbx = seqbox.SbxBlock(ver=sbxver, pswd=password)
     metadata = {}
     trimfilesize = False
-
+    
     hashtype = 0
     hashlen = 0
     hashdigest = b""
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
+    buffer=decode_header_block_with_rsc(buffer,blocksize=sbx.blocksize)
 
-    try:
-        sbx.decode(buffer)
-    except seqbox.SbxDecodeError as err:
-        if cont == False:
-            print(err)
-            errexit(errlev=1, mess="invalid block at offset 0x0")
-
+    sbx.decode(buffer)
     if sbx.blocknum > 1:
         errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
     elif sbx.blocknum == 0:
@@ -324,7 +315,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
-        
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -358,7 +348,8 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                     print("  SHA256: %s" % (binascii.hexlify(
                         hashdigest).decode()))
                 else:
-                    print("  hash type not recognized!")
+                    print("hash type not recognized!")
+            
         sys.exit(0)
 
     #evaluate target filename
@@ -384,38 +375,17 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         d = hashlib.sha256()
     lastblocknum = 0
 
-    filesize = 0
     blockmiss = 0
     updatetime = time.time()
-    redundandcy_amount=32
-    rsc=RSCodec(redundandcy_amount)
     blocknumber=0 
     while True:
         buffer = fin.read(sbx.blocksize)
         if len(buffer) < sbx.blocksize:
             break
-
         try:
-
+            buffer=decode_data_block_with_rsc(buffer,sbx.blocknum,sbxfilesize,metadata["padding_last_block"])
             blocknumber=blocknumber+1
-            #search for first occurence of "0x1a" and cut to there
-            if hex(buffer[-1])==hex(26) and (blocknumber*512+512)==sbxfilesize:
-                count_of_EOF = 0
-                for i in range(1,len(buffer)):
-                    if hex(buffer[-i]) == hex(26):
-                        count_of_EOF = count_of_EOF+1
-                    else:
-                        break
-                rsc_decoded = rsc.decode(buffer[16:-count_of_EOF])[0]
-            else:           
-                rsc_decoded = rsc.decode(buffer[16:])[0]    
-          
-            
-           
-            rsc_decoded = bytes(buffer[:16])+bytes(rsc_decoded)
-           
-            sbx.decode(rsc_decoded)
-
+            sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
                 if cont:
                     blockmiss += 1
@@ -470,7 +440,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         if not trimfilesize:
             c = lastEofCount(sbx.data[-4:])
             print("EOF markers at the end of last block: %i/4" % c)
-
 
 if __name__ == '__main__':
     main()
