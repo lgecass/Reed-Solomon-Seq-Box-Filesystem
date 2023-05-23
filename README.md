@@ -28,3 +28,7 @@ pyfuse3 | `pip install pyfuse3`<br/>
 `python ./RS-SeqBox/sbxreco.py sbxscan.db3 --all`
 ### Decode Files into their normal Fileformat
 `python ./RS-SeqBox/sbxdec.py <file to decode>`
+## Code Attribution and Modifications
+The code in this repository is based on the work of Marco Pontello (© 2017). The original code can be found here (https://github.com/MarcoPon/SeqBox). <br/> 
+### I have made the following modifications: <br/>
+`...`
