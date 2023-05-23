@@ -1,6 +1,7 @@
 # SeqBox - Sequenced Box container
 ## Code Base Source
-The code in this repository is based on the work of Marco Pontello (© 2017). The original code can be found here (https://github.com/MarcoPon/SeqBox).
+The code in this repository is based on the work of Marco Pontello (© 2017). The original code can be found here (https://github.com/MarcoPon/SeqBox). <br/>
+The following documentation is extracted from the above named source
 ### A single file container/archive that can be reconstructed even after total loss of file system structures.
 ![SBX-Logo](http://i.imgur.com/Ewper2w.png)
 
