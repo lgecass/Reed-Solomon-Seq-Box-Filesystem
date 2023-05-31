@@ -34,6 +34,70 @@ from time import time
 import seqbox
 
 PROGRAM_VER = "1.0.2"
+
+def calculate_filenames(filename,sbxfilename):
+    max_filename_size = 30
+    filename_splitted = os.path.split(filename)[1]
+    sbx_filename_splitted = os.path.split(sbxfilename)[1]
+    filename_size_conform=""
+    sbx_filename_size_conform=""
+    if len(filename_splitted) < max_filename_size:
+
+        filename_splitted_dot = filename_splitted.split(".")
+
+        size_of_padding = max_filename_size - len(filename_splitted) 
+
+        filename_splitted_dot[0] += size_of_padding * '_'
+        
+        for i in range(0,len(filename_splitted_dot)):
+            if i == len(filename_splitted_dot)-1:
+                    filename_size_conform+= filename_splitted_dot[i]
+            else:
+                filename_size_conform+= filename_splitted_dot[i]+"."
+            
+    elif len(filename_splitted) > max_filename_size:
+        remove_char_size = len(filename_splitted) - max_filename_size
+        filename_splitted_dot = filename_splitted.split(".")
+        filename_splitted_dot[0] = filename_splitted_dot[0][:-remove_char_size]
+
+        for i in range(0,len(filename_splitted_dot)):
+            if i == len(filename_splitted_dot)-1:
+                    filename_size_conform+= filename_splitted_dot[i]
+            else:
+                filename_size_conform+= filename_splitted_dot[i]+"."
+
+    if len(sbx_filename_splitted) < max_filename_size:
+
+        sbx_filename_splitted_dot = sbx_filename_splitted.split(".")
+
+        size_of_padding = max_filename_size - len(sbx_filename_splitted)
+
+        sbx_filename_splitted_dot[0] = sbx_filename_splitted_dot[0] + size_of_padding * '_' 
+
+        for i in range(0,len(sbx_filename_splitted_dot)):
+            if i == len(sbx_filename_splitted_dot)-1:
+                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]
+            else:
+                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]+"."
+    
+    elif len(sbx_filename_splitted) > max_filename_size:
+        remove_char_size = len(sbx_filename_splitted) - max_filename_size
+        sbx_filename_splitted_dot = sbx_filename_splitted.split(".")
+        sbx_filename_splitted_dot[0] = sbx_filename_splitted_dot[0][:-remove_char_size]
+
+        for i in range(0,len(sbx_filename_splitted_dot)):
+            if i == len(sbx_filename_splitted_dot)-1:
+                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]
+            else:
+                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]+"."
+
+    if len(sbx_filename_size_conform) == 0:
+        sbx_filename_size_conform = sbxfilename
+    if len(filename_size_conform) == 0 :
+        filename_size_conform = filename
+
+    return filename_size_conform,sbx_filename_size_conform
+
 def calculate_size_of_padding_last_block(filesize):
     rsc=RSCodec(34)
     raw_data_size_read_into_1_block=426
@@ -93,6 +157,7 @@ def getsha256(filename):
     return d.digest()
 
 def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password=""):
+
     filename = filename
     sbxfilename = sbxfilename
     if not sbxfilename:
@@ -131,10 +196,13 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
 
     length_of_padding=calculate_size_of_padding_last_block(filesize)
     #write metadata block 0
+    filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
+
+
     if not nometa:
         sbx.metadata = {"filesize":filesize,
-                        "filename":os.path.split(filename)[1],
-                        "sbxname":os.path.split(sbxfilename)[1],
+                        "filename":filename_size_conform,
+                        "sbxname":sbxfilename_size_conform,
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
                         "hash":b'\x12\x20'+sha256,#multihash
@@ -172,7 +240,7 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
-          (sbxfilesize, totblocks, overhead))    
+          (sbxfilesize, totblocks, overhead))
 
 def main():
     cmdline = get_cmdline()
@@ -214,10 +282,13 @@ def main():
 
     length_of_padding=calculate_size_of_padding_last_block(filesize)
     #write metadata block 0
+    filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
+
+
     if not cmdline.nometa:
         sbx.metadata = {"filesize":filesize,
-                        "filename":os.path.split(filename)[1],
-                        "sbxname":os.path.split(sbxfilename)[1],
+                        "filename":filename_size_conform,
+                        "sbxname":sbxfilename_size_conform,
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
                         "hash":b'\x12\x20'+sha256,#multihash

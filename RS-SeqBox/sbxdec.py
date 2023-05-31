@@ -87,8 +87,8 @@ def decode_data_block_with_rsc(buffer,blocknumber,filesize_sbx_file,padding_size
        return bytes(rsc.decode(buffer[:-2])[0])         
 
 
-def decode_header_block_with_rsc(buffer,blocksize): 
-    redundancy=207
+def decode_header_block_with_rsc(buffer): 
+    redundancy=173
     rsc=RSCodec(redundancy)
     return bytes(rsc.decode(buffer[:-2])[0])
             
@@ -125,7 +125,7 @@ def main():
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
-    buffer=decode_header_block_with_rsc(buffer,blocksize=sbx.blocksize)
+    buffer=decode_header_block_with_rsc(buffer)
 
     sbx.decode(buffer)
     if sbx.blocknum > 1:
@@ -182,12 +182,14 @@ def main():
     if not cmdline.test:
         if not filename:
             if "filename" in metadata:
-                filename = metadata["filename"]
+                filename = metadata["filename"].replace("_","")
+                print("FILENAME FOUND", filename)
             else:
                 filename = os.path.split(sbxfilename)[1] + ".out"
         elif os.path.isdir(filename):
             if "filename" in metadata:
                 filename = os.path.join(filename, metadata["filename"])
+                
             else:
                 filename = os.path.join(filename,
                                         os.path.split(sbxfilename)[1] + ".out")
@@ -269,7 +271,6 @@ def main():
     
     
 def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
-
     sbxfilename = sbxfilename
     filename = filename
     if not os.path.exists(sbxfilename):
@@ -299,7 +300,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
-    buffer=decode_header_block_with_rsc(buffer,blocksize=sbx.blocksize)
+    buffer=decode_header_block_with_rsc(buffer)
 
     sbx.decode(buffer)
     if sbx.blocknum > 1:
@@ -356,12 +357,14 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     if not test:
         if not filename:
             if "filename" in metadata:
-                filename = metadata["filename"]
+                filename = metadata["filename"].replace("_","")
+                print("FILENAME FOUND", filename)
             else:
                 filename = os.path.split(sbxfilename)[1] + ".out"
         elif os.path.isdir(filename):
             if "filename" in metadata:
                 filename = os.path.join(filename, metadata["filename"])
+                
             else:
                 filename = os.path.join(filename,
                                         os.path.split(sbxfilename)[1] + ".out")

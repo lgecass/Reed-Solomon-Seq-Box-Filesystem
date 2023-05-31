@@ -32,7 +32,7 @@ from reedsolo import ReedSolomonError, RSCodec
 
 supported_vers = [1, 2, 3]
 def encode_header_data_with_rsc(block):
-    reed_solomon_redundancy = 207
+    reed_solomon_redundancy = 173
     rsc = RSCodec(reed_solomon_redundancy)
     return bytes(rsc.encode(block))
 
@@ -102,12 +102,12 @@ class SbxBlock():
         if self.blocknum == 0:
             #Header Block encoding
             self.data = b""
-            #if "filename" in self.metadata:
-               # bb = self.metadata["filename"].encode()
-               # self.data += b"FNM" + bytes([len(bb)]) + bb
-            #if "sbxname" in self.metadata:
-                #bb = self.metadata["sbxname"].encode()
-                #self.data += b"SNM" + bytes([len(bb)]) + bb
+            if "filename" in self.metadata:
+                bb = self.metadata["filename"].encode()
+                self.data += b"FNM" + bytes([len(bb)]) + bb
+            if "sbxname" in self.metadata:
+                bb = self.metadata["sbxname"].encode()
+                self.data += b"SNM" + bytes([len(bb)]) + bb
             if "filesize" in self.metadata:
                 bb = self.metadata["filesize"].to_bytes(8, byteorder='big')
                 self.data += b"FSZ" + bytes([len(bb)]) + bb
