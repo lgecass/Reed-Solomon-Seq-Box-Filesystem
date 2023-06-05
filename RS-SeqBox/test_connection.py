@@ -1,13 +1,14 @@
 from reedsolo import RSCodec, ReedSolomonError
-bytes_of_text= 294
+bytes_of_text= 2400
 text= b'X' * bytes_of_text
 print("LEN MESSAGE,",len(text))
 
-redundancy=108
+redundancy=100
 
 rsc=RSCodec(redundancy)
 
 response = bytes(rsc.encode(text))
+print("RESPONSE=", response)
 
 print("LEN ENCODED", len(response))
 
