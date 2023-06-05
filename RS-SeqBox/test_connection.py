@@ -1,9 +1,9 @@
 from reedsolo import RSCodec, ReedSolomonError
-bytes_of_text= 442
-text= b'A' * bytes_of_text
+bytes_of_text= 294
+text= b'X' * bytes_of_text
 print("LEN MESSAGE,",len(text))
 
-redundancy=34
+redundancy=108
 
 rsc=RSCodec(redundancy)
 

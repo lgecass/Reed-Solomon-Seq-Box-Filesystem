@@ -34,7 +34,9 @@ from time import time
 import seqbox
 
 PROGRAM_VER = "1.0.2"
-
+def printMessage(message,verbose=True):
+        if verbose == True:
+            print(message)
 def calculate_filenames(filename,sbxfilename):
     max_filename_size = 30
     filename_splitted = os.path.split(filename)[1]
@@ -98,21 +100,28 @@ def calculate_filenames(filename,sbxfilename):
 
     return filename_size_conform,sbx_filename_size_conform
 
-def calculate_size_of_padding_last_block(filesize):
-    rsc=RSCodec(34)
-    raw_data_size_read_into_1_block=426
-    size_of_data_last_block=filesize%raw_data_size_read_into_1_block
+def calculate_size_of_padding_last_block(filesize,sbxObject):
+    rsc=RSCodec(sbxObject.redsym)
+    raw_data_size_read_into_1_block=sbxObject.raw_data_size_read_into_1_block
+    headersize= sbxObject.hdrsize
 
-    result= bytes(rsc.encode(size_of_data_last_block*b'A'))
+
+    size_of_data_last_block= filesize % raw_data_size_read_into_1_block
+    size_of_data_last_block+=headersize
+
+    if size_of_data_last_block == 0:
+        return sbxObject.padding_normal_block
+
+    text = b'\x1A'*size_of_data_last_block
+    result= bytes(rsc.encode(text))
+
 
     blocksize=512
-
-    headersize=16
-
     redundancy_data_addition=len(result)-size_of_data_last_block
+    length_of_padding=blocksize-size_of_data_last_block  - redundancy_data_addition
 
-    length_of_padding=blocksize-size_of_data_last_block - headersize - redundancy_data_addition
     return length_of_padding
+    
 
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
@@ -138,6 +147,8 @@ def get_cmdline():
                         help="SBX blocks version", metavar="n")
     parser.add_argument("-p", "--password", type=str, default="",
                         help="encrypt with password", metavar="pass")
+    parser.add_argument("-verbose", "--verbose", action="store_true", default=False, help="Show extended Information")
+    parser.add_argument("-redundancylevel", "--redundancylevel",type=int, default=1, help="How much redundancy Data should be added. Level1: Can cover x procent")
     res = parser.parse_args()
     return res
 
@@ -156,10 +167,10 @@ def getsha256(filename):
             d.update(buf)
     return d.digest()
 
-def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password=""):
+def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="",redundancylevel=2):
 
     filename = filename
-    sbxfilename = sbxfilename
+    sbxfilename = None
     if not sbxfilename:
         sbxfilename = os.path.split(filename)[1] + ".sbx"
     elif os.path.isdir(sbxfilename):
@@ -192,9 +203,9 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, pswd=password)
+    sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, pswd=password, redundancy=redundancylevel)
 
-    length_of_padding=calculate_size_of_padding_last_block(filesize)
+    length_of_padding=calculate_size_of_padding_last_block(filesize,sbx)
     #write metadata block 0
     filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
 
@@ -206,8 +217,9 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
                         "hash":b'\x12\x20'+sha256,#multihash
-                        "padding_last_block":length_of_padding} 
-        fout.write(sbx.encode())
+                        "padding_last_block":length_of_padding,
+                        "redundancy_level":redundancylevel} 
+        fout.write(sbx.encode(sbx))
     
     #write all other blocks
     ticks = 0
@@ -216,7 +228,7 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
     while True:
         blocknumber = blocknumber+1
         #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
-        buffer = fin.read(sbx.datasize-70)
+        buffer = fin.read(sbx.datasize - sbx.redsize)
       
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
@@ -224,13 +236,13 @@ def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="")
         sbx.blocknum += 1
         #encode buffer with rsc
         sbx.data = buffer
-        fout.write(sbx.encode())
-
+        fout.write(sbx.encode(sbx))
         #some progress update
         if time() > updatetime:
             print("%.1f%%" % (fin.tell()*100.0/filesize), " ",
                   end="\r", flush=True)
             updatetime = time() + .1
+    
         
     print("100%  ")
     fin.close()
@@ -278,9 +290,9 @@ def main():
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, pswd=cmdline.password)
+    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, pswd=cmdline.password, redundancy=cmdline.redundancylevel)
 
-    length_of_padding=calculate_size_of_padding_last_block(filesize)
+    length_of_padding=calculate_size_of_padding_last_block(filesize,sbx)
     #write metadata block 0
     filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
 
@@ -292,8 +304,9 @@ def main():
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(time()),
                         "hash":b'\x12\x20'+sha256,#multihash
-                        "padding_last_block":length_of_padding} 
-        fout.write(sbx.encode())
+                        "padding_last_block":length_of_padding,
+                        "redundancy_level":cmdline.redundancylevel} 
+        fout.write(sbx.encode(sbx))
     
     #write all other blocks
     ticks = 0
@@ -302,7 +315,7 @@ def main():
     while True:
         blocknumber = blocknumber+1
         #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
-        buffer = fin.read(sbx.datasize-70)
+        buffer = fin.read(sbx.datasize - sbx.redsize)
       
         if len(buffer) < sbx.datasize:
             if len(buffer) == 0:
@@ -310,13 +323,13 @@ def main():
         sbx.blocknum += 1
         #encode buffer with rsc
         sbx.data = buffer
-        fout.write(sbx.encode())
-
+        fout.write(sbx.encode(sbx))
         #some progress update
         if time() > updatetime:
             print("%.1f%%" % (fin.tell()*100.0/filesize), " ",
                   end="\r", flush=True)
             updatetime = time() + .1
+    
         
     print("100%  ")
     fin.close()
@@ -328,6 +341,7 @@ def main():
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
           (sbxfilesize, totblocks, overhead))    
 
+    
 
 if __name__ == '__main__':
     main()

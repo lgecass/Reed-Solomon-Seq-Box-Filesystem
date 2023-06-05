@@ -31,13 +31,12 @@ import sys
 from reedsolo import ReedSolomonError, RSCodec
 
 supported_vers = [1, 2, 3]
-def encode_header_data_with_rsc(block):
-    reed_solomon_redundancy = 173
-    rsc = RSCodec(reed_solomon_redundancy)
+def encode_header_data_with_rsc(block,sbxObject):
+    rsc = RSCodec(sbxObject.reed_solomon_sym_header)
     return bytes(rsc.encode(block))
 
-def encode_data_block_with_rsc(buffer):
-    rsc=RSCodec(34)
+def encode_data_block_with_rsc(buffer,sbxObject):
+    rsc=RSCodec(sbxObject.redsym)
     return bytes(rsc.encode(buffer))
 
 
@@ -55,11 +54,28 @@ class SbxBlock():
     Implement a basic SBX block
     """
     
-    def __init__(self, ver=1, uid="r", pswd=""):
+    def __init__(self, ver=1, uid="r", pswd="", redundancy=1):
         self.ver = ver
+        self.redundancy = redundancy
         if ver == 1:
             self.blocksize = 512
             self.hdrsize = 16
+            if redundancy == 1:
+                self.redsize = 70
+                self.redsym = 34
+                self.padding_normal_block = 2
+                self.padding_header = 2
+                self.raw_data_size_read_into_1_block = 426
+                self.reed_solomon_sym_header = 170
+            if redundancy == 2:
+                self.redsize = 218
+                self.redsym = 108
+                self.padding_normal_block = 2
+                self.padding_header = 2
+                self.raw_data_size_read_into_1_block = 278
+                self.reed_solomon_sym_header = 170
+
+
         elif ver == 2:
             #mostly a test to double check that all tools works correctly
             #with different blocks versions/parameters.
@@ -98,7 +114,7 @@ class SbxBlock():
         return "SBX Block ver: '%i', size: %i, hdr size: %i, data: %i" % \
                (self.ver, self.blocksize, self.hdrsize, self.datasize)
 
-    def encode(self):
+    def encode(self,sbxObject):
         if self.blocknum == 0:
             #Header Block encoding
             self.data = b""
@@ -122,14 +138,17 @@ class SbxBlock():
                 self.data += b"HSH" + bytes([len(bb)]) + bb
             if "padding_last_block" in self.metadata:
                 bb = self.metadata["padding_last_block"].to_bytes(2,byteorder="big")
-                self.data += b"PAD" + bytes([len(bb)]) + bb          
+                self.data += b"PAD" + bytes([len(bb)]) + bb 
+            if "redundancy_level" in self.metadata:
+                bb = self.metadata["redundancy_level"].to_bytes(1,byteorder="big")
+                self.data += b"RSL" + bytes([len(bb)]) + bb        
             buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   self.data)
             crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
             block = self.magic + crc + buffer
 
-            block=encode_header_data_with_rsc(block)
+            block=encode_header_data_with_rsc(block,sbxObject)
             block = block + b'\x1A' * (self.blocksize - len(block))
         else:   
             
@@ -139,19 +158,13 @@ class SbxBlock():
                 crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
                 #Assemble whole 512 byte Block
                 block = self.magic + crc + buffer
-                block = encode_data_block_with_rsc(block)
+                block = encode_data_block_with_rsc(block,sbxObject)
                 block = block + b'\x1A' * (512 - len(block))
 
-                
-                
-            
-           
-
-
+        
         return block
 
     def decode(self, buffer):
-        redundant_rs_code_datasize=64
         #start setting an invalid block number
         self.blocknum = -1
         #decode eventual password
@@ -159,7 +172,8 @@ class SbxBlock():
             buffer = self.encdec.xor(buffer)
         #check the basics
         if buffer[:3] != self.magic[:3]:
-            raise SbxDecodeError("not an SBX block")
+            print("ERROR")
+            #raise SbxDecodeError("not an SBX block")
         if not buffer[3] in supported_vers:
            raise SbxDecodeError("block v%i not supported" % buffer[3])
 
@@ -204,6 +218,8 @@ class SbxBlock():
                         self.metadata["hash"] = metabb
                     if metaid == b'PAD':
                         self.metadata["padding_last_block"] = int.from_bytes(metabb,byteorder='big')
+                    if metaid == b'RSL':
+                        self.metadata["redundancy_level"] = int.from_bytes(metabb,byteorder='big')
         return True
 
 

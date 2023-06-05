@@ -76,23 +76,23 @@ def lastEofCount(data):
         count +=1
     return count
 
-def decode_data_block_with_rsc(buffer,blocknumber,filesize_sbx_file,padding_size=0):
-    redundancy=34
+def decode_data_block_with_rsc(sbxObject,buffer,blocknumber,filesize_sbx_file,padding_size=0,):
+    redundancy=sbxObject.redsym
     rsc=RSCodec(redundancy)
     blocknumber+=1
     if blocknumber*512+512==filesize_sbx_file:
         rsc_last_block=RSCodec(redundancy)
         return bytes(rsc_last_block.decode(buffer[:-padding_size])[0])       
     else:
-       return bytes(rsc.decode(buffer[:-2])[0])         
-
+       return bytes(rsc.decode(buffer[:-sbxObject.padding_normal_block])[0])         
 
 def decode_header_block_with_rsc(buffer): 
-    redundancy=173
+    redundancy=170
     rsc=RSCodec(redundancy)
-    return bytes(rsc.decode(buffer[:-2])[0])
+    decoded = bytes(rsc.decode(buffer[:-3])[0])
+    return decoded
+    
             
-
 def main():
     cmdline = get_cmdline()
 
@@ -111,9 +111,6 @@ def main():
     if cmdline.password:
         e = seqbox.EncDec(cmdline.password, len(header))
         header= e.xor(header)
-    if header[:3] != b"SBx":
-        print(header[:3])
-        #errexit(1, "not a SeqBox file!")
     sbxver = 1
     sbx = seqbox.SbxBlock(ver=sbxver, pswd=cmdline.password)
     metadata = {}
@@ -125,12 +122,14 @@ def main():
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
+
     buffer=decode_header_block_with_rsc(buffer)
 
     sbx.decode(buffer)
     if sbx.blocknum > 1:
         errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
     elif sbx.blocknum == 0:
+
         print("metadata block found!")
         metadata = sbx.metadata
         if "filesize" in metadata:
@@ -141,6 +140,9 @@ def main():
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
+        if "redundancy_level" in metadata:
+            redundancy_level = metadata["redundancy_level"]
+            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, pswd=cmdline.password, redundancy=redundancy_level)
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -183,7 +185,6 @@ def main():
         if not filename:
             if "filename" in metadata:
                 filename = metadata["filename"].replace("_","")
-                print("FILENAME FOUND", filename)
             else:
                 filename = os.path.split(sbxfilename)[1] + ".out"
         elif os.path.isdir(filename):
@@ -211,7 +212,7 @@ def main():
         if len(buffer) < sbx.blocksize:
             break
         try:
-            buffer=decode_data_block_with_rsc(buffer,sbx.blocknum,sbxfilesize,metadata["padding_last_block"])
+            buffer=decode_data_block_with_rsc(sbx_redundancy,buffer,sbx.blocknum,sbxfilesize,metadata["padding_last_block"])
             blocknumber=blocknumber+1
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
@@ -271,6 +272,8 @@ def main():
     
     
 def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
+
+
     sbxfilename = sbxfilename
     filename = filename
     if not os.path.exists(sbxfilename):
@@ -286,9 +289,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     if password:
         e = seqbox.EncDec(password, len(header))
         header= e.xor(header)
-    if header[:3] != b"SBx":
-        print(header[:3])
-        #errexit(1, "not a SeqBox file!")
     sbxver = 1
     sbx = seqbox.SbxBlock(ver=sbxver, pswd=password)
     metadata = {}
@@ -300,12 +300,14 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
+
     buffer=decode_header_block_with_rsc(buffer)
 
     sbx.decode(buffer)
     if sbx.blocknum > 1:
         errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
     elif sbx.blocknum == 0:
+
         print("metadata block found!")
         metadata = sbx.metadata
         if "filesize" in metadata:
@@ -316,6 +318,9 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
+        if "redundancy_level" in metadata:
+            redundancy_level = metadata["redundancy_level"]
+            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, pswd=password, redundancy=redundancy_level)
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -358,7 +363,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         if not filename:
             if "filename" in metadata:
                 filename = metadata["filename"].replace("_","")
-                print("FILENAME FOUND", filename)
             else:
                 filename = os.path.split(sbxfilename)[1] + ".out"
         elif os.path.isdir(filename):
@@ -386,7 +390,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         if len(buffer) < sbx.blocksize:
             break
         try:
-            buffer=decode_data_block_with_rsc(buffer,sbx.blocknum,sbxfilesize,metadata["padding_last_block"])
+            buffer=decode_data_block_with_rsc(sbx_redundancy,buffer,sbx.blocknum,sbxfilesize,metadata["padding_last_block"])
             blocknumber=blocknumber+1
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
