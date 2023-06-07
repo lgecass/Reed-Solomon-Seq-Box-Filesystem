@@ -27,7 +27,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 '''
-
+import threading
 import os
 import sys
 import shutil
@@ -58,6 +58,8 @@ import faulthandler
 faulthandler.enable()
 
 log = logging.getLogger(__name__)
+
+active_sbx_encodings = []
 def decode_header_block_with_rsc(buffer):
     redundancy=170
     rsc=RSCodec(redundancy)
@@ -149,6 +151,8 @@ def create_shielded_version_of_file(path_to_file,shield_dir):
     
     sbxenc.encode(path_to_file,sbxfilename=path_to_file+".sbx")    
     print("file encoded")
+    active_sbx_encodings.remove(path_to_file)
+
 
 def unshield_file(path_to_file):
     print("Unshielding file")
@@ -347,48 +351,35 @@ class Operations(pyfuse3.Operations):
 
     async def rename(self, inode_p_old, name_old, inode_p_new, name_new,
                      flags, ctx):
-        if flags != 0:
-            raise FUSEError(errno.EINVAL)
+            print("renaming")
+            print("nameold",name_old)
+            print("namenew",name_new)
+            if flags != 0:
+                raise FUSEError(errno.EINVAL)
 
-        name_old = fsdecode(name_old)
-        name_new = fsdecode(name_new)
-        parent_old = self._inode_to_path(inode_p_old)
-        parent_new = self._inode_to_path(inode_p_new)
-        path_old = os.path.join(parent_old, name_old)
-        path_new = os.path.join(parent_new, name_new)
-        sbx_file_exist = check_if_sbx_file_exists(path_old)
-        try:
-            os.rename(path_old, path_new)
-
-            if sbx_file_exist:
-                os.rename(path_old+".sbx", path_new+".sbx")
-                inode_sbx = os.lstat(path_new+".sbx").st_ino
-            inode = os.lstat(path_new).st_ino
-    
-        except OSError as exc:
-            raise FUSEError(exc.errno)
-        if inode not in self._lookup_cnt:
-            return
-        if sbx_file_exist:
-            if inode_sbx not in self._lookup_cnt:
-                return
-            val_sbx = self._inode_path_map[inode_sbx]
-            if isinstance(val_sbx, set):
-                assert len(val_sbx) > 1
-                val_sbx.add(path_new+".sbx")
-                val_sbx.remove(path_old+".sbx")
-            else:
-                assert val_sbx == path_old+".sbx"
-                self._inode_path_map[inode_sbx] = path_new+".sbx"
+            name_old = fsdecode(name_old)
+            name_new = fsdecode(name_new)
+            parent_old = self._inode_to_path(inode_p_old)
+            parent_new = self._inode_to_path(inode_p_new)
+            path_old = os.path.join(parent_old, name_old)
+            path_new = os.path.join(parent_new, name_new)
+            sbx_file_exist = check_if_sbx_file_exists(path_old)
+            try:
+                os.rename(path_old, path_new)
+                inode = os.lstat(path_new).st_ino
         
-        val = self._inode_path_map[inode]
-        if isinstance(val, set):
-            assert len(val) > 1
-            val.add(path_new)
-            val.remove(path_old)
-        else:
-            assert val == path_old
-            self._inode_path_map[inode] = path_new
+            except OSError as exc:
+                raise FUSEError(exc.errno)
+            if inode not in self._lookup_cnt:
+                return
+            val = self._inode_path_map[inode]
+            if isinstance(val, set):
+                assert len(val) > 1
+                val.add(path_new)
+                val.remove(path_old)
+            else:
+                assert val == path_old
+                self._inode_path_map[inode] = path_new
 
     async def link(self, inode, new_inode_p, new_name, ctx):
         print("link")
@@ -513,9 +504,29 @@ class Operations(pyfuse3.Operations):
             return pyfuse3.FileInfo(fh=fd)
         assert flags & os.O_CREAT == 0
         try:
-            fd = os.open(self._inode_to_path(inode), flags)
+            file_path = self._inode_to_path(inode)
+            print("TRYING OPEN",file_path)
+            if active_sbx_encodings.__contains__(file_path):
+                print("active",active_sbx_encodings)
+                fd = os.open(file_path, flags)
+            else:
+                if not file_path.endswith(".sbx"):
+                    print("active",active_sbx_encodings)
+                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx")):
+                        print("Hashes Match or file being deleted")
+                        fd = os.open(file_path, flags)
+                    else:
+                        print("Hashes dont match")
+                        if os.path.exists(file_path+".sbx"):
+                            if os.lstat(file_path+".sbx").st_size > 0:
+                                unshield_file(file_path+".sbx")
+                                fd = os.open(file_path, flags)
+
+                else:
+                    fd = os.open(file_path, flags)
         except OSError as exc:
             raise FUSEError(exc.errno)
+            
         self._inode_fd_map[inode] = fd
         self._fd_inode_map[fd] = inode
         self._fd_open_count[fd] = 1
@@ -574,12 +585,20 @@ class Operations(pyfuse3.Operations):
                     return
                 if check_if_sbx_file_exists(path_to_file):
                     if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx"):
-                        print("HASHES DONT MATCH")
-                        create_shielded_version_of_file(path_to_file,path_to_file) 
+                        if not active_sbx_encodings.__contains__(path_to_file):
+                            print("HASHES DONT MATCH")
+                            print("Threading")
+                            active_sbx_encodings.append(path_to_file)
+                            threading.Thread(target=create_shielded_version_of_file, args=(path_to_file,path_to_file)).start()
+                        else:
+                            print("File is already being processed")
                     else:
                         print("File was released without changes, no need to create sbx file")
                 else:
-                    create_shielded_version_of_file(path_to_file,path_to_file)
+                    print("Threading")
+                    if not active_sbx_encodings.__contains__(path_to_file):
+                        active_sbx_encodings.append(path_to_file)
+                        threading.Thread(target=create_shielded_version_of_file, args=(path_to_file,path_to_file)).start()
         
         except OSError as exc:
             raise FUSEError(exc.errno)
