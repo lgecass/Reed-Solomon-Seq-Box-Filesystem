@@ -13,7 +13,11 @@ pyfuse3 | `pip install pyfuse3`<br/>
 
 ## Usage
 ### Mount filesystem
-`python ./RS-SeqBox/Sbx_Rsc_filesystem.py sourcemount destinationmount`
+`python ./RS-SeqBox/Sbx_Rsc_filesystem.py working_directory shield_directory`
+<br/>
+working_directory keeps files while filesystem is mounted. 
+<br/>
+shield_directory keeps files permanently
 ### Unmount Filesystem
 `umount -l destinationmount`
 
