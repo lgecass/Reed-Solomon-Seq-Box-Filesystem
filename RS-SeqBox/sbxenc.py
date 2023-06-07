@@ -167,10 +167,10 @@ def getsha256(filename):
             d.update(buf)
     return d.digest()
 
-def encode(filename,overwrite="False",nometa=False,uid="r",sbxver=1,password="",redundancylevel=2):
+def encode(filename,sbxfilename=None,overwrite="False",nometa=False,uid="r",sbxver=1,password="",redundancylevel=2):
 
     filename = filename
-    sbxfilename = None
+    sbxfilename = sbxfilename
     if not sbxfilename:
         sbxfilename = os.path.split(filename)[1] + ".sbx"
     elif os.path.isdir(sbxfilename):

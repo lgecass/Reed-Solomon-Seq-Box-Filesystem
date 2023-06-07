@@ -51,12 +51,22 @@ from collections import defaultdict
 import trio
 import sbxenc
 import sbxdec
+from reedsolo import ReedSolomonError, RSCodec
 
 
 import faulthandler
 faulthandler.enable()
 
 log = logging.getLogger(__name__)
+def decode_header_block_with_rsc(buffer):
+    redundancy=170
+    rsc=RSCodec(redundancy)
+    decoded = bytes(rsc.decode(buffer[:-3])[0])
+    return decoded
+
+def check_if_sbx_file_exists(path_of_normal_file):
+    return os.path.exists(path_of_normal_file+".sbx")
+
 
 def compare_hash_sbxfile_normalfile(normal_file_hash,sbx_file_hash):
     if(normal_file_hash == sbx_file_hash):
@@ -79,34 +89,36 @@ def get_hash_of_sbx_file(path_to_file):
         return
     fin = open(path_to_file, "rb", buffering=1024*1024)
     buffer = fin.read(512)
-    header = fin.read(4)
-    buffer = buffer[16:]
+    buffer = bytes(decode_header_block_with_rsc(buffer))
+    header = buffer[:3]
+    data = buffer[16:]
     if header[:3] != b"SBx":
         print(1, "not a SeqBox file!")
         return
     metadata = {}
     p=0
-    while p < (len(buffer)-3):
-        metaid = buffer[p:p+3]
-        p+=3
-        if metaid == b"\x1a\x1a\x1a":
-            break
-        else:
-            metalen = buffer[p]
-            metabb = buffer[p+1:p+1+metalen]
-            p = p + 1 + metalen    
-            if metaid == b'FNM':
-                metadata["filename"] = metabb.decode('utf-8')
-            if metaid == b'SNM':
-                metadata["sbxname"] = metabb.decode('utf-8')
-            if metaid == b'FSZ':
-                metadata["filesize"] = int.from_bytes(metabb, byteorder='big')
-            if metaid == b'FDT':
-                metadata["filedatetime"] = int.from_bytes(metabb, byteorder='big')
-            if metaid == b'SDT':
-                metadata["sbxdatetime"] = int.from_bytes(metabb, byteorder='big')
-            if metaid == b'HSH':
-                metadata["hash"] = metabb
+    while p < (len(data)-3):
+                metaid = data[p:p+3]
+                p+=3
+                if metaid == b"\x1a\x1a\x1a":
+                    break
+                else:
+                    metalen = data[p]
+                    metabb = data[p+1:p+1+metalen]
+                    p = p + 1 + metalen    
+                    if metaid == b'FNM':
+                        metadata["filename"] = metabb.decode('utf-8')
+                    if metaid == b'SNM':
+                        metadata["sbxname"] = metabb.decode('utf-8')
+                    if metaid == b'FSZ':
+                        metadata["filesize"] = int.from_bytes(metabb, byteorder='big')
+                    if metaid == b'FDT':
+                        metadata["filedatetime"] = int.from_bytes(metabb, byteorder='big')
+                    if metaid == b'SDT':
+                        metadata["sbxdatetime"] = int.from_bytes(metabb, byteorder='big')
+                    if metaid == b'HSH':
+                        metadata["hash"] = metabb
+                        break
     if "hash" in metadata:
         hashtype = metadata["hash"][0]
         if hashtype == 0x12:
@@ -120,31 +132,36 @@ def get_hash_of_sbx_file(path_to_file):
 
     
     #Creates shielded File in the mirror directory
-def create_shielded_version_of_file(path_to_file):
+def create_shielded_version_of_file(path_to_file,shield_dir):
     #check if hash is equal
     if path_to_file.endswith(".sbx"):
+        if not os.path.exists(path_to_file.split(".sbx")[0]):
+            sbxdec.decode(path_to_file)
+            return
+
         if get_hash_of_sbx_file(path_to_file) == get_hash_of_normal_file(path_to_file.split(".sbx")[0]):
-            return           
-        print("Hash of Files dont match")
+            print("Hash of Files dont match")
+            sbxdec.decode(path_to_file)
+            return
+        else:
+            return
     print("Creating shielded version of File")
-    sbxenc.encode(path_to_file)    
+    
+    sbxenc.encode(path_to_file,sbxfilename=path_to_file+".sbx")    
     print("file encoded")
 
 def unshield_file(path_to_file):
     print("Unshielding file")
     sbxdec.decode(path_to_file, overwrite=True)
 
-
-
 class Operations(pyfuse3.Operations):
 
     enable_writeback_cache = True
 
-    def __init__(self, source, access_dir):
+    def __init__(self, source):
         super().__init__()
+        self.shield_dir=source
         self._inode_path_map = { pyfuse3.ROOT_INODE: source }
-        print("source dir: ", source)
-        self.access_dir=source
         self._lookup_cnt = defaultdict(lambda : 0)
         self._fd_inode_map = dict()
         self._inode_fd_map = dict()
@@ -155,6 +172,7 @@ class Operations(pyfuse3.Operations):
     
 
     def _inode_to_path(self, inode):
+
         try:
             val = self._inode_path_map[inode]
         except KeyError:
@@ -167,7 +185,7 @@ class Operations(pyfuse3.Operations):
         return val
 
     def _add_path(self, inode, path):
-      
+
         log.debug('_add_path for %d, %s', inode, path)
         self._lookup_cnt[inode] += 1
 
@@ -236,12 +254,8 @@ class Operations(pyfuse3.Operations):
 
     async def readlink(self, inode, ctx):
         path = self._inode_to_path(inode)
-        print("readlink")
-        print(path)
-        print(inode)
         try:
             target = os.readlink(path)
-            print("target: ",target)
         except OSError as exc:
             raise FUSEError(exc.errno)
         return fsencode(target)
@@ -276,6 +290,7 @@ class Operations(pyfuse3.Operations):
             self._add_path(attr.st_ino, os.path.join(path, name))
 
     async def unlink(self, inode_p, name, ctx):
+        print("UNLINK")
         name = fsdecode(name)
         parent = self._inode_to_path(inode_p)
         path = os.path.join(parent, name)
@@ -289,6 +304,7 @@ class Operations(pyfuse3.Operations):
             self._forget_path(inode, path)
 
     async def rmdir(self, inode_p, name, ctx):
+        print("RMDIR")
         name = fsdecode(name)
         parent = self._inode_to_path(inode_p)
         path = os.path.join(parent, name)
@@ -303,8 +319,6 @@ class Operations(pyfuse3.Operations):
 
     def _forget_path(self, inode, path):
         print("forget path")
-        print(inode)
-        print(path)
         log.debug('forget %s for %d', path, inode)
         val = self._inode_path_map[inode]
         if isinstance(val, set):
@@ -316,19 +330,15 @@ class Operations(pyfuse3.Operations):
 
     async def symlink(self, inode_p, name, target, ctx):
         print("symlink")
-        print(inode_p)
-        print(name)
-        print(target)
-
         name = fsdecode(name)
         target = fsdecode(target)
         parent = self._inode_to_path(inode_p)
         path = os.path.join(parent, name)
         try:
             os.symlink(target, path)
-            os.symlink(target+".sb.rs",path+".sb.rs")
+            os.symlink(target+".sbx",path+".sbx")
             os.chown(path, ctx.uid, ctx.gid, follow_symlinks=False)
-            os.chown(path+".sb.rs", ctx.uid, ctx.gid, follow_symlinks=False)
+            os.chown(path+".sbx", ctx.uid, ctx.gid, follow_symlinks=False)
         except OSError as exc:
             raise FUSEError(exc.errno)
         stat = os.lstat(path)
@@ -339,8 +349,6 @@ class Operations(pyfuse3.Operations):
                      flags, ctx):
         if flags != 0:
             raise FUSEError(errno.EINVAL)
-        print("NAME OLD",name_old)
-        print("NAME NEW",name_new)
 
         name_old = fsdecode(name_old)
         name_new = fsdecode(name_new)
@@ -348,15 +356,31 @@ class Operations(pyfuse3.Operations):
         parent_new = self._inode_to_path(inode_p_new)
         path_old = os.path.join(parent_old, name_old)
         path_new = os.path.join(parent_new, name_new)
+        sbx_file_exist = check_if_sbx_file_exists(path_old)
         try:
             os.rename(path_old, path_new)
-            #os.rename(path_old+".sb.rs",path_new+".sb.rs")
+
+            if sbx_file_exist:
+                os.rename(path_old+".sbx", path_new+".sbx")
+                inode_sbx = os.lstat(path_new+".sbx").st_ino
             inode = os.lstat(path_new).st_ino
+    
         except OSError as exc:
             raise FUSEError(exc.errno)
         if inode not in self._lookup_cnt:
             return
-
+        if sbx_file_exist:
+            if inode_sbx not in self._lookup_cnt:
+                return
+            val_sbx = self._inode_path_map[inode_sbx]
+            if isinstance(val_sbx, set):
+                assert len(val_sbx) > 1
+                val_sbx.add(path_new+".sbx")
+                val_sbx.remove(path_old+".sbx")
+            else:
+                assert val_sbx == path_old+".sbx"
+                self._inode_path_map[inode_sbx] = path_new+".sbx"
+        
         val = self._inode_path_map[inode]
         if isinstance(val, set):
             assert len(val) > 1
@@ -368,21 +392,19 @@ class Operations(pyfuse3.Operations):
 
     async def link(self, inode, new_inode_p, new_name, ctx):
         print("link")
-        print(inode)
-        print(new_inode_p)
-        print(new_name)
         new_name = fsdecode(new_name)
         parent = self._inode_to_path(new_inode_p)
         path = os.path.join(parent, new_name)
         try:
             os.link(self._inode_to_path(inode), path, follow_symlinks=False)
-            os.link(self._inode_to_path(inode)+".sb.rs",path+".sb.rs",follow_symlinks=False)
+            os.link(self._inode_to_path(inode)+".sbx",path+".sbx",follow_symlinks=False)
         except OSError as exc:
             raise FUSEError(exc.errno)
         self._add_path(inode, path)
         return await self.getattr(inode)
 
     async def setattr(self, inode, attr, fields, fh, ctx):
+        print("SETATTR")
         # We use the f* functions if possible so that we can handle
         # a setattr() call for an inode without associated directory
         # handle.
@@ -445,9 +467,6 @@ class Operations(pyfuse3.Operations):
 
     async def mknod(self, inode_p, name, mode, rdev, ctx):
         print("MKNOD")
-        print(name)
-        print(mode)
-        print(inode_p)
         path = os.path.join(self._inode_to_path(inode_p), fsdecode(name))
         try:
             os.mknod(path, mode=(mode & ~ctx.umask), device=rdev)
@@ -459,6 +478,7 @@ class Operations(pyfuse3.Operations):
         return attr
 
     async def mkdir(self, inode_p, name, mode, ctx):
+        print("MKDIR")
         path = os.path.join(self._inode_to_path(inode_p), fsdecode(name))
         try:
             os.mkdir(path, mode=(mode & ~ctx.umask))
@@ -483,26 +503,16 @@ class Operations(pyfuse3.Operations):
         return stat_
 
     async def open(self, inode, flags, ctx):
+
         #Before file is being read it is first opened
         #check Integrity of file here
         if inode in self._inode_fd_map:
-            
-            print("EARLY OPEN when file descriptor already exists")
-            file_path_of_file_to_open= self._inode_to_path(inode)
-           # if not file_path_of_file_to_open.endswith(".sbx"):
-                #print(file_path_of_file_to_open)
-                #if get_hash_of_normal_file(file_path_of_file_to_open) != get_hash_of_sbx_file(file_path_of_file_to_open+".sbx"):
-                 #   #overwrite normal file with sbx file because corruption found
-                    #Check if hash of sbx file could be corrupted
-                 #   print("corruption found")
-                 #   sbxdec.decode(file_path_of_file_to_open+".sbx",overwrite=True)
-
+            print("Early when file descriptor already exists")
             fd = self._inode_fd_map[inode]
             self._fd_open_count[fd] += 1
             return pyfuse3.FileInfo(fh=fd)
         assert flags & os.O_CREAT == 0
         try:
-            print("LATE OPEN when file is not opened yet")
             fd = os.open(self._inode_to_path(inode), flags)
         except OSError as exc:
             raise FUSEError(exc.errno)
@@ -514,15 +524,9 @@ class Operations(pyfuse3.Operations):
     async def create(self, inode_p, name, mode, flags, ctx):
         #after creating a file, the mirrored version should be shielded
         #--
-        
-        print(name)
-        print(mode)
-        print(inode_p)
-        print(self._inode_to_path(inode_p))
-        print(fsdecode(name))
+        print("CREATEE")
         path = os.path.join(self._inode_to_path(inode_p), fsdecode(name))
         try:
-            print(path)
             fd = os.open(path, flags | os.O_CREAT | os.O_TRUNC)
             
         except OSError as exc:
@@ -535,23 +539,21 @@ class Operations(pyfuse3.Operations):
         return (pyfuse3.FileInfo(fh=fd), attr)
     #normal
     async def read(self, fd, offset, length):
+        print("READ")
         #check integrity before reading
         #--
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
     #normal
     async def write(self, fd, offset, buf):
+        print("WRITE")
         #check integrity before writing
         #--
         os.lseek(fd, offset, os.SEEK_SET) 
         return os.write(fd, buf)
 
     async def release(self, fd):
-       
-        print("RELEASING")
-        #after releasing it was possible that a file was written to - 
-        #shielded version should be replace by new file
-        #--
+
         if self._fd_open_count[fd] > 1:
             self._fd_open_count[fd] -= 1
             return
@@ -559,21 +561,25 @@ class Operations(pyfuse3.Operations):
         del self._fd_open_count[fd]
         inode = self._fd_inode_map[fd]
         path_to_file = self._inode_to_path(inode)
-        print("type: ",type(path_to_file))
 
         del self._inode_fd_map[inode]
         del self._fd_inode_map[fd]
         try:
-            print("file is here", self._inode_to_path(inode))
             os.close(fd)
             self.path_to_file = path_to_file
             #Check if after releasing file, changes to the file have been made
             #if not then it is not neccessary to recreate sbx file
             if not path_to_file.endswith(".sbx"):
-                if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx"):
-                    create_shielded_version_of_file(path_to_file)    
+                if path_to_file.endswith(".trashinfo") or path_to_file.__contains__(".trashinfo"):
+                    return
+                if check_if_sbx_file_exists(path_to_file):
+                    if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx"):
+                        print("HASHES DONT MATCH")
+                        create_shielded_version_of_file(path_to_file,path_to_file) 
+                    else:
+                        print("File was released without changes, no need to create sbx file")
                 else:
-                    print("File was released without changes, no need to create sbx file")
+                    create_shielded_version_of_file(path_to_file,path_to_file)
         
         except OSError as exc:
             raise FUSEError(exc.errno)
@@ -612,42 +618,42 @@ def parse_args(args):
 def main():
     #if keyboard interrupt unmount directory
 
-    print(1)
+
     options = parse_args(sys.argv[1:])
-    print(2)
+
     init_logging(options.debug)
-    print(3)
-    operations = Operations(options.source,options.mountpoint)
+
+    operations = Operations(options.source)
 
     log.debug('Mounting...')
-    print(4)
+
     fuse_options = set(pyfuse3.default_options)
-    print(5)
+
     fuse_options.add('fsname=Shieldfs')
-    print(6)
+
     if options.debug_fuse:
-        print(7)
+
         fuse_options.add('debug')
-        print(8)
+
     fuse_options.add("auto_unmount")
   
     pyfuse3.init(operations, options.mountpoint, fuse_options)
-    print(9)
+
 
     try:
-        print(10)
+
         log.debug('Entering main loop..')
-        print(11)
+
         trio.run(pyfuse3.main)
-        print(12)
+
     except:
         pyfuse3.close(unmount=False)
         raise
 
     log.debug('Unmounting..')
-    print(13)
+
     pyfuse3.close(unmount=True)
-    print(14)
+
 
 if __name__ == '__main__':
     main()
