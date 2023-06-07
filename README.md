@@ -17,7 +17,7 @@ pyfuse3 | `pip install pyfuse3`<br/>
 <br/>
 working_directory keeps files while filesystem is mounted. 
 <br/>
-shield_directory keeps files permanently
+shield_directory keeps files permanently.
 ### Unmount Filesystem
 `umount -l destinationmount`
 
