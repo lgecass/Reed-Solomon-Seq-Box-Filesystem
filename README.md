@@ -7,6 +7,7 @@ The .sbx file does not depend on the original file. <br/>
 
 ## Installation
 ### Requirements
+python >= 3.6
 libfuse 3 | https://github.com/libfuse/libfuse<br/>
 reedsolo | `pip install reedsolo`<br/>
 pyfuse3 | `pip install pyfuse3`<br/>
