@@ -11,6 +11,16 @@ python >= 3.6
 libfuse 3 | https://github.com/libfuse/libfuse<br/>
 reedsolo | `pip install reedsolo`<br/>
 pyfuse3 | `pip install pyfuse3`<br/>
+### Full Installation Steps
+`git clone https://github.com/lgecass/Reed-Solomon-Seq-Box-Filesystem.git`<br/>
+`cd Reed-Solomon-Seq-Box-Filesystem`<br/>
+`pip install -r requirements.txt`<br/>
+`git clone https://github.com/libfuse/libfuse.git`<br/>
+`cd libfuse`<br/>
+`mkdir build; cd build`<br/>
+`meson setup ..`<br/>
+`ninja`<br/>
+`sudo ninja install`<br/>
 
 ## Usage
 ### Mount filesystem
