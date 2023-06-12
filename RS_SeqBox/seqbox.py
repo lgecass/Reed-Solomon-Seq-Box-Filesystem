@@ -28,16 +28,16 @@ import os
 import random
 import sys
 
-from reedsolo import ReedSolomonError, RSCodec
+#from reedsolo import ReedSolomonError, RSCodec
+import creedsolo.creedsolo as crs
 
 supported_vers = [1, 2, 3]
 def encode_header_data_with_rsc(block,sbxObject):
-    rsc = RSCodec(sbxObject.reed_solomon_sym_header)
-    return bytes(rsc.encode(block))
+    rsc = crs.RSCodec(sbxObject.reed_solomon_sym_header)
+    return bytes(rsc.encode(bytearray(block)))
 
 def encode_data_block_with_rsc(buffer,sbxObject):
-    rsc=RSCodec(sbxObject.redsym)
-    return bytes(rsc.encode(buffer))
+    return 
 
 
 #Some custom exceptions
@@ -54,9 +54,11 @@ class SbxBlock():
     Implement a basic SBX block
     """
     
-    def __init__(self, ver=1, uid="r", pswd="", redundancy=1):
+    def __init__(self, ver=1, uid="r", redundancy=1):
         self.ver = ver
         self.redundancy = redundancy
+        self.padding_last_block = 0
+        self.headerblock_save = ""
         if ver == 1:
             self.blocksize = 512
             self.hdrsize = 16
@@ -74,18 +76,7 @@ class SbxBlock():
                 self.padding_header = 2
                 self.raw_data_size_read_into_1_block = 278
                 self.reed_solomon_sym_header = 170
-        #elif ver == 2:
-            #mostly a test to double check that all tools works correctly
-            #with different blocks versions/parameters.
-            #or it could be good for CP/M! :)
-            #self.blocksize = 128
-            #self.hdrsize = 16
-        #elif ver == 3:
-            #and another one for big blocks, to be used just if absolute
-            #sure that the SBX file will not be used on a system with
-            #smaller blocks
-            #self.blocksize = 4096
-            #self.hdrsize = 16
+            self.rsc_for_data_block = crs.RSCodec(self.redsym)
         else:
             raise SbxError("version %i not supported" % ver)
         self.datasize = self.blocksize - self.hdrsize
@@ -99,10 +90,8 @@ class SbxBlock():
         else:
             self.uid = (b'\x00'*6 + uid)[-6:]
 
-        if pswd:
-            self.encdec = EncDec(pswd, self.blocksize)
-        else:
-            self.encdec = False
+        
+        self.encdec = False
 
         self.parent_uid = 0
         self.metadata = {}
@@ -148,17 +137,21 @@ class SbxBlock():
 
             block=encode_header_data_with_rsc(block,sbxObject)
             block = block + b'\x1A' * (self.blocksize - len(block))
-        else:   
-            
+        else: 
                 buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
                   self.data)
                 crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
                 #Assemble whole 512 byte Block
                 block = self.magic + crc + buffer
-                block = encode_data_block_with_rsc(block,sbxObject)
-                block = block + b'\x1A' * (512 - len(block))
 
+                block = bytes(sbxObject.rsc_for_data_block.encode(bytearray(block)))
+                len_before_padding = len(block)
+                block = block + b'\x1A' * (512 - len(block))
+                len_after_padding = len(block)
+                self.padding_last_block = len_after_padding -len_before_padding
+
+               
         
         return block
 
@@ -170,16 +163,9 @@ class SbxBlock():
             buffer = self.encdec.xor(buffer)
         #check the basics
         if buffer[:3] != self.magic[:3]:
-            print("ERROR")
-            #raise SbxDecodeError("not an SBX block")
+            raise SbxDecodeError("not an SBX block")
         if not buffer[3] in supported_vers:
            raise SbxDecodeError("block v%i not supported" % buffer[3])
-
-        #check CRC of rest of the block
-        #crc = int.from_bytes(buffer[4:6], byteorder='big') 
-        #if crc != binascii.crc_hqx(buffer[6:], self.ver):
-            #print("bad CRC")
-            #raise SbxDecodeError("bad CRC")
 
         self.parent_uid = 0
 
