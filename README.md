@@ -11,6 +11,11 @@ python >= 3.6
 libfuse 3 | https://github.com/libfuse/libfuse<br/>
 reedsolo | `pip install reedsolo`<br/>
 pyfuse3 | `pip install pyfuse3`<br/>
+### Fast Installation with Script
+`git clone https://github.com/lgecass/Reed-Solomon-Seq-Box-Filesystem.git`<br/>
+`cd Reed-Solomon-Seq-Box-Filesystem`<br/>
+`chmod +x install.sh`<br/>
+`./install.sh`<br/>
 ### Full Installation Steps
 `git clone https://github.com/lgecass/Reed-Solomon-Seq-Box-Filesystem.git`<br/>
 `cd Reed-Solomon-Seq-Box-Filesystem`<br/>
@@ -21,6 +26,9 @@ pyfuse3 | `pip install pyfuse3`<br/>
 `meson setup ..`<br/>
 `ninja`<br/>
 `sudo ninja install`<br/>
+`pip install --upgrade reedsolo --no-binary "reedsolo" --no-cache --config-setting="--build-option=--cythonize" --use-pep517 --isolated --pre --verbose`<br/>
+
+
 
 ## Usage
 ### Mount filesystem
