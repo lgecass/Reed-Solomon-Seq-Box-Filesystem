@@ -11,4 +11,4 @@ sudo ninja install
 
 # Install creedsolo (reedsolomon c module) with options
 pip install --upgrade reedsolo --no-binary "reedsolo" --no-cache --config-setting="--build-option=--cythonize" --use-pep517 --isolated --pre --verbose
-pip install pyfuse3 == 3.2.3
+pip install pyfuse3==3.2.3
