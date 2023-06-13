@@ -8,7 +8,7 @@ mkdir build; cd build
 meson setup ..
 ninja
 sudo ninja install
-
+sudo apt-get install fuse3 libfuse3-dev
 
 # Install creedsolo (reedsolomon c module) with options
 pip install --upgrade reedsolo --no-binary "reedsolo" --no-cache --config-setting="--build-option=--cythonize" --use-pep517 --isolated --pre --verbose
