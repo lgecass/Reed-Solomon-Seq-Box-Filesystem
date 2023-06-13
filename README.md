@@ -37,21 +37,21 @@ pyfuse3 | `pip install pyfuse3`<br/>
 working_directory keeps files while filesystem is mounted. 
 <br/>
 shield_directory keeps files permanently even after the filesystem is unmounted.
-### Unmount Filesystem
+### Unmount filesystem
 `umount -l destinationmount`
 
-## Recover Files from corrupted data drive
-### Make an Image file out of the Partition where files cannot be recognized
+## Recover files from corrupted data drive
+### Make an image file out of the Partition where files cannot be recognized
 `sudo dd if=/dev/<data_drive_partition> of=image.ima bs=1M status=progress`
-### Scan the Image for Files
+### Scan the image for Files
 `python ./RS_SeqBox/sbxscan.py image.ima` <- This creates a .db3 file
 ### Preview all the files that had been recognized by scanning
 `python ./RS_SeqBox/sbxreco.py sbxscan.db3 -i`
-### Recover All Files
+### Recover all files
 `python ./RS_SeqBox/sbxreco.py sbxscan.db3 --all`
-### Decode Files into their normal Fileformat
+### Decode files into their normal fileformat
 `python ./RS_SeqBox/sbxdec.py <file to decode>`
-## Code Attribution and Modifications
+## Code attribution and modifications
 Some of the code in this repository is based on the work of Marco Pontello (© 2017). The original code can be found here (https://github.com/MarcoPon/SeqBox). <br/> 
 ### I have made the following modifications: <br/>
 `...`
