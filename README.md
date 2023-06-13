@@ -5,7 +5,7 @@ Everytime you read it should compare the Hashes between these 2 files and repair
 The .sbx File represents the original file and is the only file you need to replace your original data. <br/>
 The .sbx file does not depend on the original file. <br/>
 
-## Installation
+## Installation - Should work on Ubuntu/Debian
 ### Requirements
 python >= 3.6
 libfuse 3 | https://github.com/libfuse/libfuse<br/>
