@@ -12,17 +12,27 @@ The .sbx file does not depend on the original file. <br/>
 `chmod +x install.sh`<br/>
 `./install.sh`<br/>
 ### Full Installation Steps
+#### Update system
+`sudo apt update`
+#### Clone this repository and enter
 `git clone https://github.com/lgecass/Reed-Solomon-Seq-Box-Filesystem.git`<br/>
 `cd Reed-Solomon-Seq-Box-Filesystem`<br/>
+#### Install dependencies for libfuse and pyfuse3
+`sudo apt install meson ninja-build`<br/>
+`sudo apt-get install fuse3 libfuse3-dev -y`<br/>
+`sudo apt-get install pkg-config -y`<br/>
 `pip install -r requirements.txt`<br/>
+#### Install libfuse
 `git clone https://github.com/libfuse/libfuse.git`<br/>
 `cd libfuse`<br/>
 `mkdir build; cd build`<br/>
 `meson setup ..`<br/>
 `ninja`<br/>
 `sudo ninja install`<br/>
+#### Install creedsolo the reed solomon c code module
 `pip install --upgrade reedsolo --no-binary "reedsolo" --no-cache --config-setting="--build-option=--cythonize" --use-pep517 --isolated --pre --verbose`<br/>
-
+#### Install pyfuse3
+`pip install pyfuse3==3.2.3`<br/>
 
 
 ## Usage
