@@ -1,4 +1,3 @@
 reedsolo == 1.7.0 
-pyfuse3 == 3.2.3
 meson == 1.0.1
 pytest == 7.2.1 
