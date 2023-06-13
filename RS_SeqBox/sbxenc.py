@@ -210,6 +210,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
                 #replace the padding size for last block in header
                 sbx.metadata["padding_last_block"] = sbx.padding_last_block
                 header_block = sbx.encode(sbx)
+                fout.close()
                 with open(sbxfilename,'r+b') as f:
                     f.seek(0)
                     f.write(header_block)

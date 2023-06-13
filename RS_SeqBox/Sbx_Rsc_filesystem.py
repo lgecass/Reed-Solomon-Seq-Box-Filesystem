@@ -27,7 +27,6 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 '''
-import threading
 import os
 import sys
 import shutil
@@ -134,7 +133,7 @@ def get_hash_of_sbx_file(path_to_file):
 
     
     #Creates shielded File in the mirror directory
-def create_shielded_version_of_file(path_to_file,shield_dir):
+def create_shielded_version_of_file(path_to_file):
     #check if hash is equal
     if path_to_file.endswith(".sbx"):
         if not os.path.exists(path_to_file.split(".sbx")[0]):
@@ -369,6 +368,8 @@ class Operations(pyfuse3.Operations):
         
             except OSError as exc:
                 raise FUSEError(exc.errno)
+            
+
             if inode not in self._lookup_cnt:
                 return
             val = self._inode_path_map[inode]
@@ -520,12 +521,15 @@ class Operations(pyfuse3.Operations):
                             if os.lstat(file_path+".sbx").st_size > 0:
                                 unshield_file(file_path)
                                 fd = os.open(file_path, flags)
+                        else:
+                            print("File does not exist because it is being renamed")
+                            fd = os.open(file_path,flags)
 
                 else:
                     fd = os.open(file_path, flags)
         except OSError as exc:
             raise FUSEError(exc.errno)
-            
+        print("FP",file_path)
         self._inode_fd_map[inode] = fd
         self._fd_inode_map[fd] = inode
         self._fd_open_count[fd] = 1
@@ -586,9 +590,9 @@ class Operations(pyfuse3.Operations):
                     if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx"):
                         if not active_sbx_encodings.__contains__(path_to_file):
                             print("HASHES DONT MATCH")
-                            print("Threading")
                             active_sbx_encodings.append(path_to_file)
-                            threading.Thread(target=create_shielded_version_of_file, args=(path_to_file,path_to_file)).start()
+                            create_shielded_version_of_file(path_to_file)
+                            
                         else:
                             print("File is already being processed")
                     else:
@@ -597,7 +601,8 @@ class Operations(pyfuse3.Operations):
                     print("Threading")
                     if not active_sbx_encodings.__contains__(path_to_file):
                         active_sbx_encodings.append(path_to_file)
-                        threading.Thread(target=create_shielded_version_of_file, args=(path_to_file,path_to_file)).start()
+                        create_shielded_version_of_file(path_to_file)
+                        
         
         except OSError as exc:
             raise FUSEError(exc.errno)

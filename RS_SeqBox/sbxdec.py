@@ -230,8 +230,8 @@ def main():
                 lastblocknum += 1
             else:
                 print(err)
-                errexit(errlev=1, mess="invalid block at offset %s" %
-                        (hex(fin.tell()-sbx.blocksize)))
+                #errexit(errlev=1, mess="invalid block at offset %s" %
+                        #(hex(fin.tell()-sbx.blocksize)))
 
         #some progress report
         if time.time() > updatetime: 
@@ -388,12 +388,15 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             blocknumber+=1
             #calculate if last block is reached
             if blocknumber*sbx.blocksize+sbx.blocksize==sbxfilesize:
+                print("LASTBLOCK,", blocknumber)
+                print("padding:", metadata["padding_last_block"])
                 #LastBlock of File -> Padding is different 
                 buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-metadata["padding_last_block"]]))[0])     
             else:
                 buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-sbx_redundancy.padding_normal_block]))[0])
-            
+            print(blocknumber)
             sbx.decode(buffer)
+            
             if sbx.blocknum > lastblocknum+1:
                 if cont:
                     blockmiss += 1
