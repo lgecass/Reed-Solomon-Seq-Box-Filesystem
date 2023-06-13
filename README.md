@@ -37,7 +37,7 @@ The .sbx file does not depend on the original file. <br/>
 
 ## Usage
 ### Mount filesystem
-`python ./RS_SeqBox/Sbx_Rsc_filesystem.py working_directory shield_directory`
+`python Sbx_Rsc_filesystem.py working_directory shield_directory`
 <br/>
 working_directory keeps files while filesystem is mounted. 
 <br/>
