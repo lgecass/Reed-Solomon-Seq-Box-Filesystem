@@ -33,7 +33,7 @@ from functools import partial
 from time import time as gettime
 
 
-import seqbox
+import RS_SeqBox.seqbox as seqbox
 
 PROGRAM_VER = "1.0.2"
 def printMessage(message,verbose=True):

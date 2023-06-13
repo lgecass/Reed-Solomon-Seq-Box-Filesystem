@@ -31,7 +31,8 @@ import argparse
 import binascii
 import time
 
-import seqbox
+import RS_SeqBox.seqbox as seqbox
+
 
 PROGRAM_VER = "1.0.2"
 
@@ -388,13 +389,10 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             blocknumber+=1
             #calculate if last block is reached
             if blocknumber*sbx.blocksize+sbx.blocksize==sbxfilesize:
-                print("LASTBLOCK,", blocknumber)
-                print("padding:", metadata["padding_last_block"])
                 #LastBlock of File -> Padding is different 
                 buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-metadata["padding_last_block"]]))[0])     
             else:
                 buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-sbx_redundancy.padding_normal_block]))[0])
-            print(blocknumber)
             sbx.decode(buffer)
             
             if sbx.blocknum > lastblocknum+1:

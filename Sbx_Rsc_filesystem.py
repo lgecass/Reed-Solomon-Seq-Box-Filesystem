@@ -48,8 +48,8 @@ from pyfuse3 import FUSEError
 from os import fsencode, fsdecode
 from collections import defaultdict
 import trio
-import sbxenc
-import sbxdec
+import RS_SeqBox.sbxenc as sbxenc
+import RS_SeqBox.sbxdec as sbxdec
 from reedsolo import ReedSolomonError, RSCodec
 
 
