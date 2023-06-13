@@ -6,11 +6,6 @@ The .sbx File represents the original file and is the only file you need to repl
 The .sbx file does not depend on the original file. <br/>
 
 ## Installation - Should work on Ubuntu/Debian
-### Requirements
-python >= 3.6
-libfuse 3 | https://github.com/libfuse/libfuse<br/>
-reedsolo | `pip install reedsolo`<br/>
-pyfuse3 | `pip install pyfuse3`<br/>
 ### Fast Installation with Script
 `git clone https://github.com/lgecass/Reed-Solomon-Seq-Box-Filesystem.git`<br/>
 `cd Reed-Solomon-Seq-Box-Filesystem`<br/>
