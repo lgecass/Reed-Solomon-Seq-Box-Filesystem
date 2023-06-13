@@ -1,4 +1,5 @@
 #!/bin/bash
+sudo apt install meson ninja-build
 pip install -r requirements.txt
 
 git clone https://github.com/libfuse/libfuse.git
