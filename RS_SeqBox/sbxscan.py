@@ -29,10 +29,21 @@ import argparse
 import binascii
 from time import sleep, time
 import sqlite3
-
+import creedsolo.creedsolo as crs
 import seqbox
 
 PROGRAM_VER = "1.0.1"
+def decode_data_block():
+    print("trying decoding data block")
+    
+def decode_header_block(buffer):
+    print("Decoding")
+    redundancy=170
+    rsc=crs.RSCodec(redundancy)
+    decoded = bytes(rsc.decode(bytearray(buffer[:-3]))[0])
+    print("Decoded")
+    return decoded
+
 
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
@@ -93,6 +104,7 @@ def main():
         else:
             errexit(1, "file '%s' not found!" % (filename))
     filenames = sorted(set(filenames), key=os.path.getsize)
+    print("filenames", filenames)
 
     dbfilename = cmdline.dbfilename
     if os.path.isdir(dbfilename):
@@ -111,7 +123,7 @@ def main():
     c.execute("CREATE INDEX blocks ON sbx_blocks (uid, num, pos)")
 
     #scan all the files/devices 
-    sbx = seqbox.SbxBlock(ver=cmdline.sbxver,pswd=cmdline.password)
+    sbx = seqbox.SbxBlock(ver=cmdline.sbxver)
     offset = cmdline.offset
     filenum = 0
     uids = {}
@@ -141,6 +153,17 @@ def main():
         for pos in range(offset, filesize, scanstep):
             fin.seek(pos, 0)
             buffer = fin.read(sbx.blocksize)
+            #
+            #print("Buffer read:", buffer,"\n")
+            copy_buffer = buffer
+            try:
+                copy_buffer_1 = decode_header_block(copy_buffer)
+                buffer = copy_buffer_1
+            except crs.ReedSolomonError:
+              print("not Header block") 
+              print("Trying Data Block")
+
+              buffer = buffer
             #check for magic
             if buffer[:4] == magic:
                 #check for valid block
@@ -162,7 +185,7 @@ def main():
                         (int.from_bytes(sbx.uid, byteorder='big'),
                          sbx.blocknum, filenum, pos))
                     docommit = True
-
+                
                     #update meta table
                     if sbx.blocknum == 0:
                         blocksmetafound += 1

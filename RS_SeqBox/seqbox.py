@@ -149,10 +149,8 @@ class SbxBlock():
                 len_before_padding = len(block)
                 block = block + b'\x1A' * (512 - len(block))
                 len_after_padding = len(block)
-                self.padding_last_block = len_after_padding -len_before_padding
-
-               
-        
+                self.padding_last_block = len_after_padding -len_before_padding   
+                
         return block
 
     def decode(self, buffer):

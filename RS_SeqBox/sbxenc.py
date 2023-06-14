@@ -33,7 +33,9 @@ from functools import partial
 from time import time as gettime
 
 
-import RS_SeqBox.seqbox as seqbox
+#import RS_SeqBox.seqbox as seqbox
+import seqbox
+
 
 PROGRAM_VER = "1.0.2"
 def printMessage(message,verbose=True):
@@ -143,7 +145,7 @@ def getsha256(filename):
     return d.digest()
 
 def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundancylevel=2):
-
+    
     filename = filename
     sbxfilename = sbxfilename
     if not sbxfilename:
@@ -170,11 +172,11 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     #calc hash - before all processing, and not while reading the file,
     #just to be cautious
     
-    print("hashing file '%s'..." % (filename))
+    #print("hashing file '%s'..." % (filename))
     sha256 = getsha256(filename)
-    print("SHAA",sha256)
-    print("SHA256",binascii.hexlify(sha256).decode())
-    print("fin:", filename)
+    #print("SHAA",sha256)
+    #print("SHA256",binascii.hexlify(sha256).decode())
+    #print("fin:", filename)
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
@@ -199,24 +201,25 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     timelist=[]
     while True:
         
-        #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
         buffer = fin.read(sbx.datasize - sbx.redsize)
-        
-        if len(buffer) < sbx.datasize:
+
+        if len(buffer) < sbx.raw_data_size_read_into_1_block:
             if len(buffer) == 0:
-                #read first block to update padding size
                 sbx_blocknum_save = sbx.blocknum
-                sbx.blocknum = 0 
-                #replace the padding size for last block in header
-                sbx.metadata["padding_last_block"] = sbx.padding_last_block
+                sbx.blocknum = 0
                 header_block = sbx.encode(sbx)
                 fout.close()
                 with open(sbxfilename,'r+b') as f:
                     f.seek(0)
                     f.write(header_block)
                     f.close()
-                sbx.blocknum = sbx_blocknum_save
-                break
+                    sbx.blocknum = sbx_blocknum_save
+                    break
+            else:
+                sbx.metadata["padding_last_block"] = ((sbx.datasize-sbx.redsize) - len(buffer))
+                buffer += b'\x1A'* ((sbx.datasize-sbx.redsize) - len(buffer))
+
+           
         sbx.blocknum += 1
         #encode buffer with rsc
         
@@ -236,11 +239,10 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
             updatetime = gettime() + .1
         
         
-    #print(timelist)
     time_taken = 0
     for time in timelist:
         time_taken += time
-    print("total time for : ", str(time_taken)+ " s")
+    print("total time for Encoding: ", str(time_taken)+ " s")
     print("100%  ")
     fin.close()
     fout.close()
@@ -249,7 +251,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
-          (sbxfilesize, totblocks, overhead))    
+          (sbxfilesize, totblocks, overhead))   
 
 def main():
     cmdline = get_cmdline()
@@ -279,11 +281,11 @@ def main():
     #calc hash - before all processing, and not while reading the file,
     #just to be cautious
     
-    print("hashing file '%s'..." % (filename))
+    #print("hashing file '%s'..." % (filename))
     sha256 = getsha256(filename)
-    print("SHAA",sha256)
-    print("SHA256",binascii.hexlify(sha256).decode())
-    print("fin:", filename)
+    #print("SHAA",sha256)
+    #print("SHA256",binascii.hexlify(sha256).decode())
+    #print("fin:", filename)
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
@@ -308,24 +310,25 @@ def main():
     timelist=[]
     while True:
         
-        #buffer read is reduced to compensate added redundancy data 32 redundancy adds 64 bytes -> x*2
         buffer = fin.read(sbx.datasize - sbx.redsize)
-        
-        if len(buffer) < sbx.datasize:
+
+        if len(buffer) < sbx.raw_data_size_read_into_1_block:
             if len(buffer) == 0:
-                #read first block to update padding size
                 sbx_blocknum_save = sbx.blocknum
-                sbx.blocknum = 0 
-                #replace the padding size for last block in header
-                sbx.metadata["padding_last_block"] = sbx.padding_last_block
+                sbx.blocknum = 0
                 header_block = sbx.encode(sbx)
                 fout.close()
                 with open(sbxfilename,'r+b') as f:
                     f.seek(0)
                     f.write(header_block)
                     f.close()
-                sbx.blocknum = sbx_blocknum_save
-                break
+                    sbx.blocknum = sbx_blocknum_save
+                    break
+            else:
+                sbx.metadata["padding_last_block"] = ((sbx.datasize-sbx.redsize) - len(buffer))
+                buffer += b'\x1A'* ((sbx.datasize-sbx.redsize) - len(buffer))
+
+           
         sbx.blocknum += 1
         #encode buffer with rsc
         
