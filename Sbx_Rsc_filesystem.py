@@ -50,7 +50,7 @@ from collections import defaultdict
 import trio
 import RS_SeqBox.sbxenc as sbxenc
 import RS_SeqBox.sbxdec as sbxdec
-from reedsolo import ReedSolomonError, RSCodec
+import creedsolo.creedsolo as crs
 
 
 import faulthandler
@@ -60,9 +60,9 @@ log = logging.getLogger(__name__)
 
 active_sbx_encodings = []
 def decode_header_block_with_rsc(buffer):
-    redundancy=170
-    rsc=RSCodec(redundancy)
-    decoded = bytes(rsc.decode(buffer[:-3])[0])
+    redundancy=108
+    rsc=crs.RSCodec(redundancy)
+    decoded = bytes(rsc.decode(bytearray(buffer[:-2]))[0])
     return decoded
 
 def check_if_sbx_file_exists(path_of_normal_file):
@@ -89,9 +89,13 @@ def get_hash_of_sbx_file(path_to_file):
         print(1, "sbx file '%s' not found" % (path_to_file))
         return
     fin = open(path_to_file, "rb", buffering=1024*1024)
+    
     buffer = fin.read(512)
+
     buffer = bytes(decode_header_block_with_rsc(buffer))
+
     header = buffer[:3]
+
     data = buffer[16:]
     if header[:3] != b"SBx":
         print(1, "not a SeqBox file!")
@@ -494,7 +498,7 @@ class Operations(pyfuse3.Operations):
         return stat_
 
     async def open(self, inode, flags, ctx):
-
+        
         #Before file is being read it is first opened
         #check Integrity of file here
         if inode in self._inode_fd_map:

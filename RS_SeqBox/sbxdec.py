@@ -31,9 +31,14 @@ import argparse
 import binascii
 import time
 #ersetzen
-#import RS_SeqBox.seqbox as seqbox
-import seqbox
-
+try:
+    import RS_SeqBox.seqbox as seqbox
+except ImportError:
+    pass
+try:
+    import seqbox as seqbox_main
+except ImportError:
+    pass
 
 PROGRAM_VER = "1.0.2"
 
@@ -79,201 +84,6 @@ def lastEofCount(data):
         count +=1
     return count
 
-def decode_header_block_with_rsc(buffer): 
-    redundancy=170
-    rsc=crs.RSCodec(redundancy)
-    decoded = bytes(rsc.decode(bytearray(buffer[:-3]))[0])
-    return decoded
-    
-            
-def main():
-    cmdline = get_cmdline()
-
-    sbxfilename = cmdline.sbxfilename
-    filename = cmdline.filename
-    if not os.path.exists(sbxfilename):
-        errexit(1, "sbx file '%s' not found" % (sbxfilename))
-    sbxfilesize = os.path.getsize(sbxfilename)
-
-    print("decoding '%s'..." % (sbxfilename))
-    fin = open(sbxfilename, "rb", buffering=1024*1024)
-
-    #check magic and get version
-    header = fin.read(4)
-    fin.seek(0, 0)
-    if cmdline.password:
-        e = seqbox.EncDec(cmdline.password, len(header))
-        header= e.xor(header)
-    sbxver = 1
-    sbx = seqbox.SbxBlock(ver=sbxver)
-    metadata = {}
-    trimfilesize = False
-    
-    hashtype = 0
-    hashlen = 0
-    hashdigest = b""
-    hashcheck = False
-
-    buffer = fin.read(sbx.blocksize)
-    buffer=decode_header_block_with_rsc(buffer)
-
-    sbx.decode(buffer)
-    if sbx.blocknum > 1:
-        errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
-    elif sbx.blocknum == 0:
-        print("metadata block found!")
-        metadata = sbx.metadata
-        if "filesize" in metadata:
-            trimfilesize = True
-        if "hash" in metadata:
-            hashtype = metadata["hash"][0]
-            if hashtype == 0x12:
-                hashlen = metadata["hash"][1]
-                hashdigest = metadata["hash"][2:2+hashlen]
-                hashcheck = True
-        if "redundancy_level" in metadata:
-            redundancy_level = metadata["redundancy_level"]
-            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, redundancy=redundancy_level)
-    else:
-        #first block is data, so reset from the start
-        print("no metadata available")
-        fin.seek(0, 0)
-
-    #display some info and stop
-    if cmdline.info:
-        print("\nSeqBox container info:")
-        print("  file size: %i bytes" % (sbxfilesize))
-        print("  blocks: %i" % (sbxfilesize / sbx.blocksize))
-        print("  version: %i" % (sbx.ver))
-        print("  UID: %s" % (binascii.hexlify(sbx.uid).decode()))
-        if metadata:
-            print("metadata:")
-            if "sbxname" in metadata:
-                print("  SBX name : '%s'" % (metadata["sbxname"]))
-            if "filename" in metadata:
-                print("  file name: '%s'" % (metadata["filename"]))
-            if "filesize" in metadata:
-                print("  file size: %i bytes" % (metadata["filesize"]))
-            if "sbxdatetime" in metadata:
-                print("  SBX date&time : %s" %
-                      (time.strftime("%Y-%m-%d %H:%M:%S",
-                                     time.localtime(metadata["sbxdatetime"]))))
-            if "filedatetime" in metadata:
-                print("  file date&time: %s" %
-                      (time.strftime("%Y-%m-%d %H:%M:%S",
-                                     time.localtime(metadata["filedatetime"]))))
-            if "hash" in metadata:
-                if hashtype == 0x12:
-                    print("  SHA256: %s" % (binascii.hexlify(
-                        hashdigest).decode()))
-                else:
-                    print("hash type not recognized!")
-            
-        sys.exit(0)
-
-    #evaluate target filename
-    if not cmdline.test:
-        if not filename:
-            if "filename" in metadata:
-                filename = metadata["filename"].replace("_","")
-            else:
-                filename = os.path.split(sbxfilename)[1] + ".out"
-        elif os.path.isdir(filename):
-            if "filename" in metadata:
-                filename = os.path.join(filename, metadata["filename"])
-                
-            else:
-                filename = os.path.join(filename,
-                                        os.path.split(sbxfilename)[1] + ".out")
-
-        if os.path.exists(filename) and not cmdline.overwrite:
-            errexit(1, "target file '%s' already exists!" % (filename)) 
-        print("creating file '%s'..." % (filename))
-        fout= open(filename, "wb", buffering=1024*1024)
-
-    if hashtype == 0x12:
-        d = hashlib.sha256()
-    lastblocknum = 0
-
-    blockmiss = 0
-    updatetime = time.time()
-    blocknumber=0 
-
-
-    if metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block == 0:
-        count_of_blocks = metadata["filesize"] / sbx_redundancy.raw_data_size_read_into_1_block
-    else:
-        count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block)) / sbx_redundancy.raw_data_size_read_into_1_block
-
-    while True:
-        buffer = fin.read(sbx.blocksize)
-        if len(buffer) < sbx.blocksize:
-            break
-        try:
-            blocknumber+=1
-            buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-sbx_redundancy.padding_normal_block]))[0])
-
-            #LastBlock check
-            if blocknumber == count_of_blocks+1:
-                #cut padding
-                buffer = buffer[:-metadata["padding_last_block"]]
-                
-            sbx.decode(buffer)
-            if sbx.blocknum > lastblocknum+1:
-                if cmdline.cont:
-                    blockmiss += 1
-                    lastblocknum += 1
-                else:
-                    errexit(errlev=1, mess="block %i out of order or missing"
-                             % (lastblocknum+1))    
-            lastblocknum += 1
-            if hashcheck:
-                d.update(sbx.data) 
-            if not cmdline.test:
-                fout.write(sbx.data)
-
-        except seqbox.SbxDecodeError as err:
-            if cmdline.cont:
-                blockmiss += 1
-                lastblocknum += 1
-            else:
-                print(err)
-                #errexit(errlev=1, mess="invalid block at offset %s" %
-                        #(hex(fin.tell()-sbx.blocksize)))
-
-        #some progress report
-        if time.time() > updatetime: 
-            print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
-                  end="\r", flush=True)
-            updatetime = time.time() + .1
-
-    fin.close()
-    if not cmdline.test:
-        fout.close()
-        if metadata:
-            if "filedatetime" in metadata:
-                os.utime(filename,
-                         (int(time.time()), metadata["filedatetime"]))
-
-    print("SBX decoding complete")
-    if blockmiss:
-        errexit(1, "missing blocks: %i" % blockmiss)
-
-    if hashcheck:
-        if hashtype == 0x12:
-            print("SHA256", d.hexdigest())
-
-        if d.digest() == hashdigest:
-            print("hash match!")
-        else:
-            errexit(1, "hash mismatch! decoded file corrupted!")
-    else:
-        print("can't check integrity via hash!")
-        #if filesize unknown, estimate based on 0x1a padding at block's end
-        if not trimfilesize:
-            c = lastEofCount(sbx.data[-4:])
-            print("EOF markers at the end of last block: %i/4" % c)
-    
     
 def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
 
@@ -282,7 +92,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     if not os.path.exists(sbxfilename):
         errexit(1, "sbx file '%s' not found" % (sbxfilename))
     sbxfilesize = os.path.getsize(sbxfilename)
-
+    
     print("decoding '%s'..." % (sbxfilename))
     fin = open(sbxfilename, "rb", buffering=1024*1024)
 
@@ -290,10 +100,10 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     header = fin.read(4)
     fin.seek(0, 0)
     if password:
-        e = seqbox.EncDec(password, len(header))
+        e = seqbox_main.EncDec(password, len(header))
         header= e.xor(header)
     sbxver = 1
-    sbx = seqbox.SbxBlock(ver=sbxver)
+    sbx = seqbox_main.SbxBlock(ver=sbxver)
     metadata = {}
     trimfilesize = False
     
@@ -303,11 +113,13 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     hashcheck = False
 
     buffer = fin.read(sbx.blocksize)
-    buffer=decode_header_block_with_rsc(buffer)
+    rsc_for_header_block = crs.RSCodec(108)
+    
+    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-2]))[0])
 
     sbx.decode(buffer)
     if sbx.blocknum > 1:
-        errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
+        return print("blocks missing or out of order")#errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
     elif sbx.blocknum == 0:
         print("metadata block found!")
         metadata = sbx.metadata
@@ -321,7 +133,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 hashcheck = True
         if "redundancy_level" in metadata:
             redundancy_level = metadata["redundancy_level"]
-            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, redundancy=redundancy_level)
+            sbx_redundancy = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancy_level)
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -420,7 +232,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             if not test:
                 fout.write(sbx.data)
 
-        except seqbox.SbxDecodeError as err:
+        except seqbox_main.SbxDecodeError as err:
             if cont:
                 blockmiss += 1
                 lastblocknum += 1
@@ -460,7 +272,233 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         #if filesize unknown, estimate based on 0x1a padding at block's end
         if not trimfilesize:
             c = lastEofCount(sbx.data[-4:])
+            print("EOF markers at the end of last block: %i/4" % c)    
+
+def decode_whole_directory(path_to_directory):
+    sbx_files = []
+    print("Decoding whole directory")  
+    if os.path.exists(path_to_directory):
+        if os.path.isdir(path_to_directory):
+            list_of_files = []
+            walk_result = []
+            for result in os.walk(path_to_directory):
+                walk_result= result
+                #print(result[2])
+            for files in walk_result[2]:
+                list_of_files.append(walk_result[0]+files)
+            
+            
+        
+            #print(list_of_files)
+            for file in list_of_files:
+                if str(file).endswith(".sbx"):
+                    sbx_files.append(file)
+            print("files",sbx_files)
+    for sbxfile in sbx_files:
+        decode(sbxfile,sbxfile[:-4],info=False,test=False,cont=False, overwrite=True)
+
+                      
+def main():
+
+
+    cmdline = get_cmdline()
+    sbxfilename = cmdline.sbxfilename
+    filename = cmdline.filename
+
+    if os.path.isdir(sbxfilename):
+        decode_whole_directory(sbxfilename)
+        return
+
+    
+    if not os.path.exists(sbxfilename):
+        errexit(1, "sbx file '%s' not found" % (sbxfilename))
+    sbxfilesize = os.path.getsize(sbxfilename)
+    
+    print("decoding '%s'..." % (sbxfilename))
+    fin = open(sbxfilename, "rb", buffering=1024*1024)
+
+    #check magic and get version
+    header = fin.read(4)
+    fin.seek(0, 0)
+    if cmdline.password:
+        e = seqbox_main.EncDec(cmdline.password, len(header))
+        header= e.xor(header)
+    sbxver = 1
+    sbx = seqbox_main.SbxBlock(ver=sbxver)
+    metadata = {}
+    trimfilesize = False
+    
+    hashtype = 0
+    hashlen = 0
+    hashdigest = b""
+    hashcheck = False
+
+    buffer = fin.read(sbx.blocksize)
+    rsc_for_header_block = crs.RSCodec(108)
+    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-2]))[0])
+
+    sbx.decode(buffer)
+    if sbx.blocknum > 1:
+        errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
+    elif sbx.blocknum == 0:
+        print("metadata block found!")
+        metadata = sbx.metadata
+        if "filesize" in metadata:
+            trimfilesize = True
+        if "hash" in metadata:
+            hashtype = metadata["hash"][0]
+            if hashtype == 0x12:
+                hashlen = metadata["hash"][1]
+                hashdigest = metadata["hash"][2:2+hashlen]
+                hashcheck = True
+        if "redundancy_level" in metadata:
+            redundancy_level = metadata["redundancy_level"]
+            sbx_redundancy = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancy_level)
+    else:
+        #first block is data, so reset from the start
+        print("no metadata available")
+        fin.seek(0, 0)
+
+    #display some info and stop
+    if cmdline.info:
+        print("\nSeqBox container info:")
+        print("  file size: %i bytes" % (sbxfilesize))
+        print("  blocks: %i" % (sbxfilesize / sbx.blocksize))
+        print("  version: %i" % (sbx.ver))
+        print("  UID: %s" % (binascii.hexlify(sbx.uid).decode()))
+        if metadata:
+            print("metadata:")
+            if "sbxname" in metadata:
+                print("  SBX name : '%s'" % (metadata["sbxname"]))
+            if "filename" in metadata:
+                print("  file name: '%s'" % (metadata["filename"]))
+            if "filesize" in metadata:
+                print("  file size: %i bytes" % (metadata["filesize"]))
+            if "sbxdatetime" in metadata:
+                print("  SBX date&time : %s" %
+                      (time.strftime("%Y-%m-%d %H:%M:%S",
+                                     time.localtime(metadata["sbxdatetime"]))))
+            if "filedatetime" in metadata:
+                print("  file date&time: %s" %
+                      (time.strftime("%Y-%m-%d %H:%M:%S",
+                                     time.localtime(metadata["filedatetime"]))))
+            if "hash" in metadata:
+                if hashtype == 0x12:
+                    print("  SHA256: %s" % (binascii.hexlify(
+                        hashdigest).decode()))
+                else:
+                    print("hash type not recognized!")
+            
+        sys.exit(0)
+
+    #evaluate target filename
+    if not cmdline.test:
+        if not filename:
+            if "filename" in metadata:
+                filename = metadata["filename"].replace("_","")
+            else:
+                filename = os.path.split(sbxfilename)[1] + ".out"
+        elif os.path.isdir(filename):
+            if "filename" in metadata:
+                filename = os.path.join(filename, metadata["filename"])
+                
+            else:
+                filename = os.path.join(filename,
+                                        os.path.split(sbxfilename)[1] + ".out")
+
+        if os.path.exists(filename) and not cmdline.overwrite:
+            errexit(1, "target file '%s' already exists!" % (filename)) 
+        print("creating file '%s'..." % (filename))
+        fout= open(filename, "wb", buffering=1024*1024)
+
+    if hashtype == 0x12:
+        d = hashlib.sha256()
+    lastblocknum = 0
+
+    blockmiss = 0
+    updatetime = time.time()
+    blocknumber=0 
+
+
+    if metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block == 0:
+        count_of_blocks = metadata["filesize"] / sbx_redundancy.raw_data_size_read_into_1_block
+    else:
+        count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block)) / sbx_redundancy.raw_data_size_read_into_1_block
+
+    while True:
+        buffer = fin.read(sbx.blocksize)
+        if len(buffer) < sbx.blocksize:
+            break
+        try:
+            blocknumber+=1
+            buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-sbx_redundancy.padding_normal_block]))[0])
+
+            #LastBlock check
+            if blocknumber == count_of_blocks+1:
+                #cut padding
+                buffer = buffer[:-metadata["padding_last_block"]]
+                
+            sbx.decode(buffer)
+            if sbx.blocknum > lastblocknum+1:
+                if cmdline.cont:
+                    blockmiss += 1
+                    lastblocknum += 1
+                else:
+                    errexit(errlev=1, mess="block %i out of order or missing"
+                             % (lastblocknum+1))    
+            lastblocknum += 1
+            if hashcheck:
+                d.update(sbx.data) 
+            if not cmdline.test:
+                fout.write(sbx.data)
+
+        except seqbox_main.SbxDecodeError as err:
+            if cmdline.cont:
+                blockmiss += 1
+                lastblocknum += 1
+            else:
+                print(err)
+                #errexit(errlev=1, mess="invalid block at offset %s" %
+                        #(hex(fin.tell()-sbx.blocksize)))
+
+        #some progress report
+        if time.time() > updatetime: 
+            print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
+                  end="\r", flush=True)
+            updatetime = time.time() + .1
+
+    fin.close()
+    if not cmdline.test:
+        fout.close()
+        if metadata:
+            if "filedatetime" in metadata:
+                os.utime(filename,
+                         (int(time.time()), metadata["filedatetime"]))
+
+    print("SBX decoding complete")
+    if blockmiss:
+        errexit(1, "missing blocks: %i" % blockmiss)
+
+    if hashcheck:
+        if hashtype == 0x12:
+            print("SHA256", d.hexdigest())
+
+        if d.digest() == hashdigest:
+            print("hash match!")
+        else:
+            errexit(1, "hash mismatch! decoded file corrupted!")
+    else:
+        print("can't check integrity via hash!")
+        #if filesize unknown, estimate based on 0x1a padding at block's end
+        if not trimfilesize:
+            c = lastEofCount(sbx.data[-4:])
             print("EOF markers at the end of last block: %i/4" % c)
+    
+    
+
+
+
+
 
 if __name__ == '__main__':
     main()

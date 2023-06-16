@@ -31,18 +31,14 @@ from time import sleep, time
 import sqlite3
 import creedsolo.creedsolo as crs
 import seqbox
-
+from collections.abc import Sequence, Mapping
 PROGRAM_VER = "1.0.1"
-def decode_data_block():
-    print("trying decoding data block")
-    
-def decode_header_block(buffer):
-    print("Decoding")
-    redundancy=170
+
+def decode_data_block(buffer):
+    redundancy=108
     rsc=crs.RSCodec(redundancy)
-    decoded = bytes(rsc.decode(bytearray(buffer[:-3]))[0])
-    print("Decoded")
-    return decoded
+    buffer = bytes(rsc.decode(bytearray(buffer[:-2]))[0])   
+    return buffer 
 
 
 def get_cmdline():
@@ -104,7 +100,6 @@ def main():
         else:
             errexit(1, "file '%s' not found!" % (filename))
     filenames = sorted(set(filenames), key=os.path.getsize)
-    print("filenames", filenames)
 
     dbfilename = cmdline.dbfilename
     if os.path.isdir(dbfilename):
@@ -122,7 +117,7 @@ def main():
     c.execute("CREATE TABLE sbx_blocks (uid INTEGER, num INTEGER, fileid INTEGER, pos INTEGER )")
     c.execute("CREATE INDEX blocks ON sbx_blocks (uid, num, pos)")
 
-    #scan all the files/devices 
+    #scan all the files/devices
     sbx = seqbox.SbxBlock(ver=cmdline.sbxver)
     offset = cmdline.offset
     filenum = 0
@@ -153,18 +148,14 @@ def main():
         for pos in range(offset, filesize, scanstep):
             fin.seek(pos, 0)
             buffer = fin.read(sbx.blocksize)
-            #
-            #print("Buffer read:", buffer,"\n")
-            copy_buffer = buffer
-            try:
-                copy_buffer_1 = decode_header_block(copy_buffer)
-                buffer = copy_buffer_1
-            except crs.ReedSolomonError:
-              print("not Header block") 
-              print("Trying Data Block")
 
-              buffer = buffer
             #check for magic
+            
+            try:
+                buffer = decode_data_block(buffer)
+            except crs.ReedSolomonError:
+                #print("not sbx block")
+                pass
             if buffer[:4] == magic:
                 #check for valid block
                 try:
@@ -173,20 +164,20 @@ def main():
                     if not sbx.uid in uids:
                         uids[sbx.uid] = True
                         c.execute(
-                            "INSERT INTO sbx_uids (uid, ver) VALUES (?, ?)",
-                            (int.from_bytes(sbx.uid, byteorder='big'),
-                             sbx.ver))
+                                "INSERT INTO sbx_uids (uid, ver) VALUES (?, ?)",
+                                (int.from_bytes(sbx.uid, byteorder='big'),
+                                sbx.ver))
                         docommit = True
 
                     #update blocks table
                     blocksfound+=1
                     c.execute(
                         "INSERT INTO sbx_blocks (uid, num, fileid, pos) VALUES (?, ?, ?, ?)",
-                        (int.from_bytes(sbx.uid, byteorder='big'),
-                         sbx.blocknum, filenum, pos))
+                            (int.from_bytes(sbx.uid, byteorder='big'),
+                            sbx.blocknum, filenum, pos))
                     docommit = True
-                
-                    #update meta table
+                    
+                        #update meta table
                     if sbx.blocknum == 0:
                         blocksmetafound += 1
                         if not "filedatetime" in sbx.metadata:
@@ -194,15 +185,16 @@ def main():
                             sbx.metadata["sbxdatetime"] = -1
 
                         c.execute(
-                            "INSERT INTO sbx_meta (uid , size, name, sbxname, datetime, sbxdatetime, fileid) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                            (int.from_bytes(sbx.uid, byteorder='big'),
-                             sbx.metadata["filesize"],
-                             sbx.metadata["filename"], sbx.metadata["sbxname"],
-                             sbx.metadata["filedatetime"], sbx.metadata["sbxdatetime"],
-                             filenum))
+                                "INSERT INTO sbx_meta (uid , size, name, sbxname, datetime, sbxdatetime, fileid) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                (int.from_bytes(sbx.uid, byteorder='big'),
+                                sbx.metadata["filesize"],
+                                sbx.metadata["filename"], sbx.metadata["sbxname"],
+                                sbx.metadata["filedatetime"], sbx.metadata["sbxdatetime"],
+                                filenum))
                         docommit = True
 
-                except seqbox.SbxDecodeError:
+                except seqbox.SbxDecodeError and KeyError:
+                    # print("error")
                     pass
 
             #status update

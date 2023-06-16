@@ -31,14 +31,8 @@ import sys
 #from reedsolo import ReedSolomonError, RSCodec
 import creedsolo.creedsolo as crs
 
-supported_vers = [1, 2, 3]
-def encode_header_data_with_rsc(block,sbxObject):
-    rsc = crs.RSCodec(sbxObject.reed_solomon_sym_header)
-    return bytes(rsc.encode(bytearray(block)))
-
-def encode_data_block_with_rsc(buffer,sbxObject):
-    return 
-
+supported_vers = [1]
+supported_redundancy = [2]
 
 #Some custom exceptions
 class SbxError(Exception):
@@ -54,7 +48,7 @@ class SbxBlock():
     Implement a basic SBX block
     """
     
-    def __init__(self, ver=1, uid="r", redundancy=1):
+    def __init__(self, ver=1, uid="r", redundancy=2):
         self.ver = ver
         self.redundancy = redundancy
         self.padding_last_block = 0
@@ -77,8 +71,9 @@ class SbxBlock():
                 self.raw_data_size_read_into_1_block = 278
                 self.reed_solomon_sym_header = 170
             self.rsc_for_data_block = crs.RSCodec(self.redsym)
-        else:
+        if not supported_vers.__contains__(ver):
             raise SbxError("version %i not supported" % ver)
+
         self.datasize = self.blocksize - self.hdrsize
         self.magic = b'SBx' + bytes([ver])
         self.blocknum = 0
@@ -135,8 +130,9 @@ class SbxBlock():
             crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
             block = self.magic + crc + buffer
 
-            block=encode_header_data_with_rsc(block,sbxObject)
-            block = block + b'\x1A' * (self.blocksize - len(block))
+            block += b'\x1A'* (sbxObject.datasize-sbxObject.redsize+sbxObject.hdrsize-len(block))
+            block = sbxObject.rsc_for_data_block.encode(bytearray(block))
+            block = bytes(block) + b'\x1A' * (self.blocksize - len(block))
         else: 
                 buffer = (self.uid +
                   self.blocknum.to_bytes(4, byteorder='big') +
@@ -161,14 +157,16 @@ class SbxBlock():
             buffer = self.encdec.xor(buffer)
         #check the basics
         if buffer[:3] != self.magic[:3]:
-            raise SbxDecodeError("not an SBX block")
+            print("not an SBX block")
+            #raise SbxDecodeError("not an SBX block")
         if not buffer[3] in supported_vers:
-           raise SbxDecodeError("block v%i not supported" % buffer[3])
+           print("block not supported")
+           #raise SbxDecodeError("block v%i not supported" % buffer[3])
 
         self.parent_uid = 0
 
         self.uid = buffer[6:12]
-        self.blocknum = int.from_bytes(buffer[12:16], byteorder='big') 
+        self.blocknum = int.from_bytes(buffer[12:16], byteorder='big')
         self.data = buffer[16:]
        
 
@@ -180,16 +178,16 @@ class SbxBlock():
             while p < (len(self.data)-3):
                 metaid = self.data[p:p+3]
                 p+=3
-                if metaid == b"\x1a\x1a\x1a":
+                if metaid[:-1] == b"\x1a\x1a":
                     break
                 else:
                     metalen = self.data[p]
                     metabb = self.data[p+1:p+1+metalen]
                     p = p + 1 + metalen    
                     if metaid == b'FNM':
-                        self.metadata["filename"] = metabb.decode('utf-8')
+                        self.metadata["filename"] = metabb.decode('utf-8',errors='ignore')
                     if metaid == b'SNM':
-                        self.metadata["sbxname"] = metabb.decode('utf-8')
+                        self.metadata["sbxname"] = metabb.decode('utf-8',errors='ignore')
                     if metaid == b'FSZ':
                         self.metadata["filesize"] = int.from_bytes(metabb, byteorder='big')
                     if metaid == b'FDT':

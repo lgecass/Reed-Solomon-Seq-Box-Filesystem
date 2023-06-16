@@ -264,7 +264,7 @@ def main():
     for uid in uidRecoList:
         uidcount += 1
         sbxver = uidDataList[uid]
-        sbx = seqbox.SbxBlock(ver=sbxver, pswd=cmdline.password)
+        sbx = seqbox.SbxBlock(ver=sbxver)
         hexuid = binascii.hexlify(uid.to_bytes(6, byteorder="big")).decode()
         print("UID %s (%i/%i)" % (hexuid, uidcount, len(uid_list)))
 
@@ -315,7 +315,7 @@ def main():
                     if b > 0 and cmdline.fill:
                         sbx.blocknum = b
                         sbx.data = bytes(sbx.datasize)
-                        buffer = sbx.encode()
+                        buffer = sbx.encode(sbx)
                         fout.write(buffer)
                     missingblocks += 1
 

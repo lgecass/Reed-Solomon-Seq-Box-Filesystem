@@ -32,9 +32,17 @@ import binascii
 from functools import partial
 from time import time as gettime
 
+try:
+    import RS_SeqBox.seqbox as seqbox
+except ImportError:
+    pass
+try:
+    import seqbox as seqbox
+except ImportError:
+    pass
 
-#import RS_SeqBox.seqbox as seqbox
-import seqbox
+
+
 
 
 PROGRAM_VER = "1.0.2"
@@ -289,7 +297,7 @@ def main():
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
+    sbx = seqbox_main.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
 
     #write metadata block 0
     filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
