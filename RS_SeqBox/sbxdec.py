@@ -361,6 +361,8 @@ def main():
         if "redundancy_level" in metadata:
             redundancy_level = metadata["redundancy_level"]
             sbx_redundancy = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancy_level)
+            sbx_redundancy.metadata = sbx.metadata
+            sbx = sbx_redundancy
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -427,10 +429,10 @@ def main():
     blocknumber=0 
 
     #calculate hot many blocks there are in the file
-    if metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block == 0:
-        count_of_blocks = metadata["filesize"] / sbx_redundancy.raw_data_size_read_into_1_block
+    if metadata["filesize"] % sbx.raw_data_size_read_into_1_block == 0:
+        count_of_blocks = metadata["filesize"] / sbx.raw_data_size_read_into_1_block
     else:
-        count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block)) / sbx_redundancy.raw_data_size_read_into_1_block
+        count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
 
     while True:
         buffer = fin.read(sbx.blocksize)
@@ -438,7 +440,7 @@ def main():
             break
         try:
             blocknumber+=1
-            buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-sbx_redundancy.padding_normal_block]))[0])
+            buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
 
             #LastBlock check
             if blocknumber == count_of_blocks+1:

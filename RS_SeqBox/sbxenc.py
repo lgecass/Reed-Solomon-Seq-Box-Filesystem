@@ -4,7 +4,7 @@
 # SBXEnc - Sequenced Box container Encoder - Extended by Lukas Gecas
 #
 # Created: 10/02/2017
-# Extended: 12.04.2023
+# Extended: 12.05.2023
 #
 # Copyright (C) 2017 Marco Pontello - http://mark0.net/
 #

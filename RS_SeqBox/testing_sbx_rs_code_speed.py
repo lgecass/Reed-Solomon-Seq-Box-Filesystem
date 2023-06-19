@@ -3,7 +3,7 @@ import sbxdec as Decoder
 from time import time as gettime
 import os
 
-file_size_to_encode = 1000000 # bytes
+file_size_to_encode = 100 # bytes
 repetitions = 100
 filename = "file_to_test.txt"
 
