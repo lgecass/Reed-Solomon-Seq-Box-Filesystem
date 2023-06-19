@@ -148,14 +148,13 @@ def main():
         for pos in range(offset, filesize, scanstep):
             fin.seek(pos, 0)
             buffer = fin.read(sbx.blocksize)
-
-            #check for magic
-            
             try:
+                #decode with reed solomon
                 buffer = decode_data_block(buffer)
             except crs.ReedSolomonError:
-                #print("not sbx block")
+                #not a sbx block or too many errors
                 pass
+            #check for magic
             if buffer[:4] == magic:
                 #check for valid block
                 try:

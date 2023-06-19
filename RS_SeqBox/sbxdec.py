@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 #--------------------------------------------------------------------------
-# SBXDec - Sequenced Box container Decoder
+# SBXDec - Sequenced Box container Decoder - Extended by Lukas Gecas
 #
-# Created: 03/03/2017
+# Created: 03/03/2017 - Extended 12.05.2023
 #
 # Copyright (C) 2017 Marco Pontello - http://mark0.net/
 #
@@ -84,9 +84,8 @@ def lastEofCount(data):
         count +=1
     return count
 
-    
 def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
-
+    
     sbxfilename = sbxfilename
     filename = filename
     if not os.path.exists(sbxfilename):
@@ -102,6 +101,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     if password:
         e = seqbox_main.EncDec(password, len(header))
         header= e.xor(header)
+    
     sbxver = 1
     sbx = seqbox_main.SbxBlock(ver=sbxver)
     metadata = {}
@@ -112,14 +112,19 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     hashdigest = b""
     hashcheck = False
 
+    #read in bytes
     buffer = fin.read(sbx.blocksize)
-    rsc_for_header_block = crs.RSCodec(108)
-    
-    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-2]))[0])
+
+    #set symbols for reed solomon
+    rsc_for_header_block = crs.RSCodec(sbx.redsym)
+
+    #decode header with reed solomon
+    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
 
     sbx.decode(buffer)
+
     if sbx.blocknum > 1:
-        return print("blocks missing or out of order")#errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
+        return print("blocks missing or out of order")
     elif sbx.blocknum == 0:
         print("metadata block found!")
         metadata = sbx.metadata
@@ -175,7 +180,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     if not test:
         if not filename:
             if "filename" in metadata:
-                filename = metadata["filename"].replace("_","")
+                filename = metadata["filename"]
             else:
                 filename = os.path.split(sbxfilename)[1] + ".out"
         elif os.path.isdir(filename):
@@ -199,7 +204,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     updatetime = time.time()
     blocknumber=0 
 
-
+    #calculate hot many blocks there are in the file
     if metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block == 0:
         count_of_blocks = metadata["filesize"] / sbx_redundancy.raw_data_size_read_into_1_block
     else:
@@ -287,8 +292,6 @@ def decode_whole_directory(path_to_directory):
             for files in walk_result[2]:
                 list_of_files.append(walk_result[0]+files)
             
-            
-        
             #print(list_of_files)
             for file in list_of_files:
                 if str(file).endswith(".sbx"):
@@ -299,16 +302,13 @@ def decode_whole_directory(path_to_directory):
 
                       
 def main():
-
-
+    
     cmdline = get_cmdline()
     sbxfilename = cmdline.sbxfilename
     filename = cmdline.filename
-
     if os.path.isdir(sbxfilename):
         decode_whole_directory(sbxfilename)
         return
-
     
     if not os.path.exists(sbxfilename):
         errexit(1, "sbx file '%s' not found" % (sbxfilename))
@@ -323,6 +323,7 @@ def main():
     if cmdline.password:
         e = seqbox_main.EncDec(cmdline.password, len(header))
         header= e.xor(header)
+    
     sbxver = 1
     sbx = seqbox_main.SbxBlock(ver=sbxver)
     metadata = {}
@@ -333,13 +334,19 @@ def main():
     hashdigest = b""
     hashcheck = False
 
+    #read in bytes
     buffer = fin.read(sbx.blocksize)
-    rsc_for_header_block = crs.RSCodec(108)
-    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-2]))[0])
+
+    #set symbols for reed solomon
+    rsc_for_header_block = crs.RSCodec(sbx.redsym)
+
+    #decode header with reed solomon
+    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
 
     sbx.decode(buffer)
+
     if sbx.blocknum > 1:
-        errexit(errlev=1, mess="blocks missing or out of order at offset 0x0")
+        return print("blocks missing or out of order")
     elif sbx.blocknum == 0:
         print("metadata block found!")
         metadata = sbx.metadata
@@ -395,7 +402,7 @@ def main():
     if not cmdline.test:
         if not filename:
             if "filename" in metadata:
-                filename = metadata["filename"].replace("_","")
+                filename = metadata["filename"]
             else:
                 filename = os.path.split(sbxfilename)[1] + ".out"
         elif os.path.isdir(filename):
@@ -419,7 +426,7 @@ def main():
     updatetime = time.time()
     blocknumber=0 
 
-
+    #calculate hot many blocks there are in the file
     if metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block == 0:
         count_of_blocks = metadata["filesize"] / sbx_redundancy.raw_data_size_read_into_1_block
     else:
@@ -492,13 +499,7 @@ def main():
         #if filesize unknown, estimate based on 0x1a padding at block's end
         if not trimfilesize:
             c = lastEofCount(sbx.data[-4:])
-            print("EOF markers at the end of last block: %i/4" % c)
-    
-    
-
-
-
-
-
+            print("EOF markers at the end of last block: %i/4" % c)  
+            
 if __name__ == '__main__':
     main()

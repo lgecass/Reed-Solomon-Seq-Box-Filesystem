@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 #--------------------------------------------------------------------------
-# SBXEnc - Sequenced Box container Encoder
+# SBXEnc - Sequenced Box container Encoder - Extended by Lukas Gecas
 #
 # Created: 10/02/2017
+# Extended: 12.04.2023
 #
 # Copyright (C) 2017 Marco Pontello - http://mark0.net/
 #
@@ -41,77 +42,7 @@ try:
 except ImportError:
     pass
 
-
-
-
-
 PROGRAM_VER = "1.0.2"
-def printMessage(message,verbose=True):
-        if verbose == True:
-            print(message)
-def calculate_filenames(filename,sbxfilename):
-    max_filename_size = 30
-    filename_splitted = os.path.split(filename)[1]
-    sbx_filename_splitted = os.path.split(sbxfilename)[1]
-    filename_size_conform=""
-    sbx_filename_size_conform=""
-    if len(filename_splitted) < max_filename_size:
-
-        filename_splitted_dot = filename_splitted.split(".")
-
-        size_of_padding = max_filename_size - len(filename_splitted) 
-
-        filename_splitted_dot[0] += size_of_padding * '_'
-        
-        for i in range(0,len(filename_splitted_dot)):
-            if i == len(filename_splitted_dot)-1:
-                    filename_size_conform+= filename_splitted_dot[i]
-            else:
-                filename_size_conform+= filename_splitted_dot[i]+"."
-            
-    elif len(filename_splitted) > max_filename_size:
-        remove_char_size = len(filename_splitted) - max_filename_size
-        filename_splitted_dot = filename_splitted.split(".")
-        filename_splitted_dot[0] = filename_splitted_dot[0][:-remove_char_size]
-
-        for i in range(0,len(filename_splitted_dot)):
-            if i == len(filename_splitted_dot)-1:
-                    filename_size_conform+= filename_splitted_dot[i]
-            else:
-                filename_size_conform+= filename_splitted_dot[i]+"."
-
-    if len(sbx_filename_splitted) < max_filename_size:
-
-        sbx_filename_splitted_dot = sbx_filename_splitted.split(".")
-
-        size_of_padding = max_filename_size - len(sbx_filename_splitted)
-
-        sbx_filename_splitted_dot[0] = sbx_filename_splitted_dot[0] + size_of_padding * '_' 
-
-        for i in range(0,len(sbx_filename_splitted_dot)):
-            if i == len(sbx_filename_splitted_dot)-1:
-                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]
-            else:
-                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]+"."
-    
-    elif len(sbx_filename_splitted) > max_filename_size:
-        remove_char_size = len(sbx_filename_splitted) - max_filename_size
-        sbx_filename_splitted_dot = sbx_filename_splitted.split(".")
-        sbx_filename_splitted_dot[0] = sbx_filename_splitted_dot[0][:-remove_char_size]
-
-        for i in range(0,len(sbx_filename_splitted_dot)):
-            if i == len(sbx_filename_splitted_dot)-1:
-                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]
-            else:
-                sbx_filename_size_conform+= sbx_filename_splitted_dot[i]+"."
-
-    if len(sbx_filename_size_conform) == 0:
-        sbx_filename_size_conform = sbxfilename
-    if len(filename_size_conform) == 0 :
-        filename_size_conform = filename
-
-    return filename_size_conform,sbx_filename_size_conform
-    
 
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
@@ -154,8 +85,12 @@ def getsha256(filename):
 
 def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundancylevel=2):
     
+    #filename to encode
     filename = filename
+    
+    #filename which results from encoding
     sbxfilename = sbxfilename
+
     if not sbxfilename:
         sbxfilename = os.path.split(filename)[1] + ".sbx"
     elif os.path.isdir(sbxfilename):
@@ -178,24 +113,21 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
-    #just to be cautious
-    
     #print("hashing file '%s'..." % (filename))
     sha256 = getsha256(filename)
     #print("SHAA",sha256)
     #print("SHA256",binascii.hexlify(sha256).decode())
     #print("fin:", filename)
+
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
     sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, redundancy=redundancylevel)
 
     #write metadata block 0
-    filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
-
     sbx.metadata = {"filesize":filesize,
-                        "filename":filename_size_conform,
-                        "sbxname":sbxfilename_size_conform,
+                        "filename":filename,
+                        "sbxname":sbxfilename,
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(gettime()),
                         "hash":b'\x12\x20'+sha256,#multihash
@@ -204,41 +136,54 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     fout.write(sbx.encode(sbx))
     
     #write all other blocks
-    ticks = 0
+
     updatetime = gettime() 
-    timelist=[]
+    time_list=[]
     while True:
-        
+        #Reads data from file 
         buffer = fin.read(sbx.datasize - sbx.redsize)
 
+        #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
+            #if file ended and no more data to be read:
             if len(buffer) == 0:
+                #save sbx_blocknum
                 sbx_blocknum_save = sbx.blocknum
+                #set to 0 so when encoding the data will be treated as header block data
                 sbx.blocknum = 0
+                #get Header Block behaviour to replace the header block with padding information
                 header_block = sbx.encode(sbx)
+                #close filehandler which was used to write output
                 fout.close()
+                #replace first 512 Bytes with up to date Informationen
                 with open(sbxfilename,'r+b') as f:
+                    #go to position 0 in file
                     f.seek(0)
+                    #write correct header block
                     f.write(header_block)
                     f.close()
+                    #restore blocknum
                     sbx.blocknum = sbx_blocknum_save
                     break
             else:
+                #this occurs when the last block is read in | datasize is between 1 byte to sbx.datasize-sbx.redsize
+                
+                #we set the correct padding in metadata
                 sbx.metadata["padding_last_block"] = ((sbx.datasize-sbx.redsize) - len(buffer))
+                #fill buffer up with padding
                 buffer += b'\x1A'* ((sbx.datasize-sbx.redsize) - len(buffer))
 
            
         sbx.blocknum += 1
-        #encode buffer with rsc
-        
         sbx.data = buffer
-       
+        #measure time  
         START_TIME = gettime()
+
         data = sbx.encode(sbx)
-        timelist.append(gettime() - START_TIME)
-       
+        #calculate time 
+        time_list.append(gettime() - START_TIME)
+        #write to file
         fout.write(data)
-        
         
         #some progress update
         if gettime() > updatetime:
@@ -248,7 +193,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
         
         
     time_taken = 0
-    for time in timelist:
+    for time in time_list:
         time_taken += time
     print("total time for Encoding: ", str(time_taken)+ " s")
     print("100%  ")
@@ -263,8 +208,12 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
 
 def main():
     cmdline = get_cmdline()
-    filename = cmdline.filename
-    sbxfilename = cmdline.sbxfilename
+    #filename to encode
+    filename = filename
+    
+    #filename which results from encoding
+    sbxfilename = sbxfilename
+
     if not sbxfilename:
         sbxfilename = os.path.split(filename)[1] + ".sbx"
     elif os.path.isdir(sbxfilename):
@@ -274,7 +223,7 @@ def main():
         errexit(1, "SBX file '%s' already exists!" % (sbxfilename))
     #parse eventual custom uid
     
-    if cmdline.uid !="r":
+    if uid !="r":
         uid = uid[-12:]
         try:
             uid = int(uid, 16).to_bytes(6, byteorder='big')
@@ -287,24 +236,21 @@ def main():
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
-    #just to be cautious
-    
     #print("hashing file '%s'..." % (filename))
     sha256 = getsha256(filename)
     #print("SHAA",sha256)
     #print("SHA256",binascii.hexlify(sha256).decode())
     #print("fin:", filename)
+
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox_main.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
+    sbx = seqbox.SbxBlock(uid=uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
 
     #write metadata block 0
-    filename_size_conform,sbxfilename_size_conform = calculate_filenames(filename,sbxfilename)
-
     sbx.metadata = {"filesize":filesize,
-                        "filename":filename_size_conform,
-                        "sbxname":sbxfilename_size_conform,
+                        "filename":filename,
+                        "sbxname":sbxfilename,
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(gettime()),
                         "hash":b'\x12\x20'+sha256,#multihash
@@ -313,41 +259,54 @@ def main():
     fout.write(sbx.encode(sbx))
     
     #write all other blocks
-    ticks = 0
+
     updatetime = gettime() 
-    timelist=[]
+    time_list=[]
     while True:
-        
+        #Reads data from file 
         buffer = fin.read(sbx.datasize - sbx.redsize)
 
+        #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
+            #if file ended and no more data to be read:
             if len(buffer) == 0:
+                #save sbx_blocknum
                 sbx_blocknum_save = sbx.blocknum
+                #set to 0 so when encoding the data will be treated as header block data
                 sbx.blocknum = 0
+                #get Header Block behaviour to replace the header block with padding information
                 header_block = sbx.encode(sbx)
+                #close filehandler which was used to write output
                 fout.close()
+                #replace first 512 Bytes with up to date Informationen
                 with open(sbxfilename,'r+b') as f:
+                    #go to position 0 in file
                     f.seek(0)
+                    #write correct header block
                     f.write(header_block)
                     f.close()
+                    #restore blocknum
                     sbx.blocknum = sbx_blocknum_save
                     break
             else:
+                #this occurs when the last block is read in | datasize is between 1 byte to sbx.datasize-sbx.redsize
+                
+                #we set the correct padding in metadata
                 sbx.metadata["padding_last_block"] = ((sbx.datasize-sbx.redsize) - len(buffer))
+                #fill buffer up with padding
                 buffer += b'\x1A'* ((sbx.datasize-sbx.redsize) - len(buffer))
 
            
         sbx.blocknum += 1
-        #encode buffer with rsc
-        
         sbx.data = buffer
-       
+        #measure time  
         START_TIME = gettime()
+
         data = sbx.encode(sbx)
-        timelist.append(gettime() - START_TIME)
-       
+        #calculate time 
+        time_list.append(gettime() - START_TIME)
+        #write to file
         fout.write(data)
-        
         
         #some progress update
         if gettime() > updatetime:
@@ -357,7 +316,7 @@ def main():
         
         
     time_taken = 0
-    for time in timelist:
+    for time in time_list:
         time_taken += time
     print("total time for Encoding: ", str(time_taken)+ " s")
     print("100%  ")
@@ -368,7 +327,7 @@ def main():
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
-          (sbxfilesize, totblocks, overhead))    
+          (sbxfilesize, totblocks, overhead))       
 
     
 

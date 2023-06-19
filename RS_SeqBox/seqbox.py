@@ -39,20 +39,15 @@ class SbxError(Exception):
     pass
 
 class SbxDecodeError(SbxError):
-    pass
-
-
-    
+    pass   
 class SbxBlock():
     """
     Implement a basic SBX block
     """
-    
     def __init__(self, ver=1, uid="r", redundancy=2):
         self.ver = ver
-        self.redundancy = redundancy
         self.padding_last_block = 0
-        self.headerblock_save = ""
+
         if ver == 1:
             self.blocksize = 512
             self.hdrsize = 16
@@ -60,19 +55,17 @@ class SbxBlock():
                 self.redsize = 70
                 self.redsym = 34
                 self.padding_normal_block = 2
-                self.padding_header = 2
                 self.raw_data_size_read_into_1_block = 426
-                self.reed_solomon_sym_header = 170
             if redundancy == 2:
                 self.redsize = 218
                 self.redsym = 108
                 self.padding_normal_block = 2
-                self.padding_header = 2
                 self.raw_data_size_read_into_1_block = 278
-                self.reed_solomon_sym_header = 170
             self.rsc_for_data_block = crs.RSCodec(self.redsym)
         if not supported_vers.__contains__(ver):
             raise SbxError("version %i not supported" % ver)
+        if not supported_redundancy.__contains__(redundancy):
+            raise SbxError("redundancy Level %i not supported" % redundancy)
 
         self.datasize = self.blocksize - self.hdrsize
         self.magic = b'SBx' + bytes([ver])
@@ -131,7 +124,7 @@ class SbxBlock():
             block = self.magic + crc + buffer
 
             block += b'\x1A'* (sbxObject.datasize-sbxObject.redsize+sbxObject.hdrsize-len(block))
-            block = sbxObject.rsc_for_data_block.encode(bytearray(block))
+            block = self.rsc_for_data_block.encode(bytearray(block))
             block = bytes(block) + b'\x1A' * (self.blocksize - len(block))
         else: 
                 buffer = (self.uid +
@@ -141,7 +134,7 @@ class SbxBlock():
                 #Assemble whole 512 byte Block
                 block = self.magic + crc + buffer
 
-                block = bytes(sbxObject.rsc_for_data_block.encode(bytearray(block)))
+                block = bytes(self.rsc_for_data_block.encode(bytearray(block)))
                 len_before_padding = len(block)
                 block = block + b'\x1A' * (512 - len(block))
                 len_after_padding = len(block)

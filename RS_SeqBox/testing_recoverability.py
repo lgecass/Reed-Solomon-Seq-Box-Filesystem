@@ -3,14 +3,15 @@ import sbxdec as Decoder
 import random
 import os
 from threading import Lock
+import creedsolo.creedsolo as crs
 from reedsolo import ReedSolomonError
 class SbxError(Exception):
     pass
 class SbxDecodeError(SbxError):
     pass
 
-run_count=100
-data_size_in_bytes = 30000
+run_count=200
+data_size_in_bytes = 3145728
 lock = Lock()
 threads = list()
 procent_of_tampering = [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.17,0.18,0.19,0.20,0.21,0.22,0.23,0.24,0.26,0.27,0.28,0.29,0.30,0.31,0.32]
@@ -54,7 +55,7 @@ for k in range(0,len(procent_of_tampering)):
         f.close()
         try:
             Decoder.decode(tampered_file_name,filename="save.txt",overwrite=True)
-        except ReedSolomonError:
+        except crs.ReedSolomonError:
             print("ERROR REED SOLOMON")
             counts_of_failure+=1
             
