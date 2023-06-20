@@ -109,7 +109,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
 
     #read in bytes
     buffer = fin.read(sbx.blocksize)
-    print(sbx.redsym)
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
 
@@ -326,7 +325,6 @@ def main():
 
     #read in bytes
     buffer = fin.read(sbx.blocksize)
-    print(sbx.redsym)
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
 

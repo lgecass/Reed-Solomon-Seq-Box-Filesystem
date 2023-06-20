@@ -25,7 +25,7 @@ directory = "/home/luge/Desktop/working_directory"
 num_files = 40
 
 # Specify the maximum file size in bytes
-max_file_size = 2245000
+max_file_size = 2245235
 
 # Call the function to create the fragmented files
 x = threading.Thread(target=create_fragmented_files, args=(directory,num_files,max_file_size,1))

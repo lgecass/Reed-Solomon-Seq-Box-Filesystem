@@ -179,7 +179,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
         #measure time  
         START_TIME = gettime()
 
-        data = sbx.encode(sbx)
+        data = sbx.encode()
         #calculate time 
         time_list.append(gettime() - START_TIME)
         #write to file
