@@ -36,7 +36,7 @@ try:
 except ImportError:
     pass
 try:
-    import seqbox as seqbox_main
+    import seqbox as seqbox
 except ImportError:
     pass
 
@@ -94,11 +94,11 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     header = fin.read(4)
     fin.seek(0, 0)
     if password:
-        e = seqbox_main.EncDec(password, len(header))
+        e = seqbox.EncDec(password, len(header))
         header= e.xor(header)
     
     sbxver = 1
-    sbx = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancylevel)
+    sbx = seqbox.SbxBlock(ver=sbxver, redundancy=redundancylevel)
     metadata = {}
     trimfilesize = False
     
@@ -132,7 +132,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 hashcheck = True
         if "redundancy_level" in metadata:
             redundancy_level = metadata["redundancy_level"]
-            sbx_redundancy = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancy_level)
+            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, redundancy=redundancy_level)
             sbx_redundancy.metadata = sbx.metadata
             sbx = sbx_redundancy
     else:
