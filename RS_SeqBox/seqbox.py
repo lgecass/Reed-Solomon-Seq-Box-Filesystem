@@ -32,7 +32,7 @@ import sys
 import creedsolo.creedsolo as crs
 
 supported_vers = [1]
-supported_redundancy = [2]
+supported_redundancy = [1,2]
 
 #Some custom exceptions
 class SbxError(Exception):
@@ -89,7 +89,7 @@ class SbxBlock():
         return "SBX Block ver: '%i', size: %i, hdr size: %i, data: %i" % \
                (self.ver, self.blocksize, self.hdrsize, self.datasize)
 
-    def encode(self,sbxObject):
+    def encode(self):
         if self.blocknum == 0:
             #Header Block encoding
             self.data = b""
@@ -123,7 +123,7 @@ class SbxBlock():
             crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
             block = self.magic + crc + buffer
 
-            block += b'\x1A'* (sbxObject.datasize-sbxObject.redsize+sbxObject.hdrsize-len(block))
+            block += b'\x1A'* (self.datasize-self.redsize+self.hdrsize-len(block))
             block = self.rsc_for_data_block.encode(bytearray(block))
             block = bytes(block) + b'\x1A' * (self.blocksize - len(block))
         else: 
@@ -194,27 +194,6 @@ class SbxBlock():
                     if metaid == b'RSL':
                         self.metadata["redundancy_level"] = int.from_bytes(metabb,byteorder='big')
         return True
-
-
-class EncDec():
-    """Simple encoding/decoding function"""
-    #it's not meant as 'strong encryption', but just to hide the presence
-    #of SBX blocks on a simple scan
-    def __init__(self, key, size):
-        #key is kept as a bigint because a xor between two bigint is faster
-        #than byte-by-byte
-        d = hashlib.sha256()
-        key = key.encode()
-        tempkey = key
-        while len(tempkey) < size:
-            d.update(tempkey)
-            key = d.digest()
-            tempkey += key
-        self.key = int(binascii.hexlify(tempkey[:size]), 16)
-    def xor(self, buffer):
-        num = int(binascii.hexlify(buffer), 16) ^ self.key
-        return binascii.unhexlify(hex(num)[2:])
-
 
 def main():
     print("SeqBox module!")

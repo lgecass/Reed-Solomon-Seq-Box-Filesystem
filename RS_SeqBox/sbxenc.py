@@ -133,7 +133,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
                         "hash":b'\x12\x20'+sha256,#multihash
                         "padding_last_block":0,
                         "redundancy_level":redundancylevel} 
-    fout.write(sbx.encode(sbx))
+    fout.write(sbx.encode())
     
     #write all other blocks
 
@@ -152,7 +152,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
                 #set to 0 so when encoding the data will be treated as header block data
                 sbx.blocknum = 0
                 #get Header Block behaviour to replace the header block with padding information
-                header_block = sbx.encode(sbx)
+                header_block = sbx.encode()
                 #close filehandler which was used to write output
                 fout.close()
                 #replace first 512 Bytes with up to date Informationen
@@ -209,10 +209,10 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
 def main():
     cmdline = get_cmdline()
     #filename to encode
-    filename = filename
+    filename = cmdline.filename
     
     #filename which results from encoding
-    sbxfilename = sbxfilename
+    sbxfilename = cmdline.sbxfilename
 
     if not sbxfilename:
         sbxfilename = os.path.split(filename)[1] + ".sbx"
@@ -223,7 +223,7 @@ def main():
         errexit(1, "SBX file '%s' already exists!" % (sbxfilename))
     #parse eventual custom uid
     
-    if uid !="r":
+    if cmdline.uid !="r":
         uid = uid[-12:]
         try:
             uid = int(uid, 16).to_bytes(6, byteorder='big')
@@ -245,7 +245,7 @@ def main():
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
+    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
 
     #write metadata block 0
     sbx.metadata = {"filesize":filesize,
@@ -256,7 +256,7 @@ def main():
                         "hash":b'\x12\x20'+sha256,#multihash
                         "padding_last_block":0,
                         "redundancy_level":cmdline.redundancylevel} 
-    fout.write(sbx.encode(sbx))
+    fout.write(sbx.encode())
     
     #write all other blocks
 
@@ -275,7 +275,7 @@ def main():
                 #set to 0 so when encoding the data will be treated as header block data
                 sbx.blocknum = 0
                 #get Header Block behaviour to replace the header block with padding information
-                header_block = sbx.encode(sbx)
+                header_block = sbx.encode()
                 #close filehandler which was used to write output
                 fout.close()
                 #replace first 512 Bytes with up to date Informationen
@@ -302,7 +302,7 @@ def main():
         #measure time  
         START_TIME = gettime()
 
-        data = sbx.encode(sbx)
+        data = sbx.encode()
         #calculate time 
         time_list.append(gettime() - START_TIME)
         #write to file

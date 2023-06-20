@@ -64,9 +64,9 @@ def get_cmdline():
                         help="overwrite existing file")
     parser.add_argument("-p", "--password", type=str, default="",
                         help="encrypt with password", metavar="pass")
+    parser.add_argument("-redundancylevel", "--redundancylevel",type=int, default=2, help="How much redundancy Data should be added. Level 2 > Level 1")
     res = parser.parse_args()
     return res
-
 
 def errexit(errlev=1, mess=""):
     """Display an error and exit."""
@@ -75,19 +75,14 @@ def errexit(errlev=1, mess=""):
                          (os.path.split(sys.argv[0])[1], mess))
     sys.exit(errlev)
 
-
-def lastEofCount(data):
-    count = 0
-    for b in range(len(data)):
-        if data[-b-1] != 0x1a:
-            break
-        count +=1
-    return count
-
-def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False):
+def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,redundancylevel=2):
     
     sbxfilename = sbxfilename
     filename = filename
+    if os.path.isdir(sbxfilename):
+        decode_whole_directory(sbxfilename)
+        return
+    
     if not os.path.exists(sbxfilename):
         errexit(1, "sbx file '%s' not found" % (sbxfilename))
     sbxfilesize = os.path.getsize(sbxfilename)
@@ -103,7 +98,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         header= e.xor(header)
     
     sbxver = 1
-    sbx = seqbox_main.SbxBlock(ver=sbxver)
+    sbx = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancylevel)
     metadata = {}
     trimfilesize = False
     
@@ -114,7 +109,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
 
     #read in bytes
     buffer = fin.read(sbx.blocksize)
-
+    print(sbx.redsym)
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
 
@@ -139,6 +134,8 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         if "redundancy_level" in metadata:
             redundancy_level = metadata["redundancy_level"]
             sbx_redundancy = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancy_level)
+            sbx_redundancy.metadata = sbx.metadata
+            sbx = sbx_redundancy
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -205,10 +202,10 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     blocknumber=0 
 
     #calculate hot many blocks there are in the file
-    if metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block == 0:
-        count_of_blocks = metadata["filesize"] / sbx_redundancy.raw_data_size_read_into_1_block
+    if metadata["filesize"] % sbx.raw_data_size_read_into_1_block == 0:
+        count_of_blocks = metadata["filesize"] / sbx.raw_data_size_read_into_1_block
     else:
-        count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx_redundancy.raw_data_size_read_into_1_block)) / sbx_redundancy.raw_data_size_read_into_1_block
+        count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
 
     while True:
         buffer = fin.read(sbx.blocksize)
@@ -216,7 +213,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             break
         try:
             blocknumber+=1
-            buffer = bytes(sbx_redundancy.rsc_for_data_block.decode(bytearray(buffer[:-sbx_redundancy.padding_normal_block]))[0])
+            buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
 
             #LastBlock check
             if blocknumber == count_of_blocks+1:
@@ -271,13 +268,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         if d.digest() == hashdigest:
             print("hash match!")
         else:
-            errexit(1, "hash mismatch! decoded file corrupted!")
-    else:
-        print("can't check integrity via hash!")
-        #if filesize unknown, estimate based on 0x1a padding at block's end
-        if not trimfilesize:
-            c = lastEofCount(sbx.data[-4:])
-            print("EOF markers at the end of last block: %i/4" % c)    
+            errexit(1, "hash mismatch! decoded file corrupted!")    
 
 def decode_whole_directory(path_to_directory):
     sbx_files = []
@@ -299,8 +290,7 @@ def decode_whole_directory(path_to_directory):
             print("files",sbx_files)
     for sbxfile in sbx_files:
         decode(sbxfile,sbxfile[:-4],info=False,test=False,cont=False, overwrite=True)
-
-                      
+                     
 def main():
     
     cmdline = get_cmdline()
@@ -325,7 +315,7 @@ def main():
         header= e.xor(header)
     
     sbxver = 1
-    sbx = seqbox_main.SbxBlock(ver=sbxver)
+    sbx = seqbox_main.SbxBlock(ver=sbxver, redundancy=cmdline.redundancylevel)
     metadata = {}
     trimfilesize = False
     
@@ -336,7 +326,7 @@ def main():
 
     #read in bytes
     buffer = fin.read(sbx.blocksize)
-
+    print(sbx.redsym)
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
 
@@ -496,12 +486,7 @@ def main():
             print("hash match!")
         else:
             errexit(1, "hash mismatch! decoded file corrupted!")
-    else:
-        print("can't check integrity via hash!")
-        #if filesize unknown, estimate based on 0x1a padding at block's end
-        if not trimfilesize:
-            c = lastEofCount(sbx.data[-4:])
-            print("EOF markers at the end of last block: %i/4" % c)  
+   
             
 if __name__ == '__main__':
     main()
