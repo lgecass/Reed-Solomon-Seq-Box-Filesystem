@@ -335,7 +335,6 @@ class Operations(pyfuse3.Operations):
             del self._inode_path_map[inode]
 
     async def symlink(self, inode_p, name, target, ctx):
-        print("symlink")
         name = fsdecode(name)
         target = fsdecode(target)
         parent = self._inode_to_path(inode_p)
