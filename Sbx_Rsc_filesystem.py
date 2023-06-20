@@ -68,7 +68,6 @@ def decode_header_block_with_rsc(buffer):
 def check_if_sbx_file_exists(path_of_normal_file):
     return os.path.exists(path_of_normal_file+".sbx")
 
-
 def compare_hash_sbxfile_normalfile(normal_file_hash,sbx_file_hash):
     if(normal_file_hash == sbx_file_hash):
         return True
@@ -639,12 +638,10 @@ def parse_args(args):
                         help='Enable debugging output')
     parser.add_argument('--debug-fuse', action='store_true', default=False,
                         help='Enable FUSE debugging output')
-
+    parser.add_argument('--redundancylevel')
     return parser.parse_args(args)
 
 def main():
-    #if keyboard interrupt unmount directory
-
 
     options = parse_args(sys.argv[1:])
 
