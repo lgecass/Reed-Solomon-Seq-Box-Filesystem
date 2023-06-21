@@ -30,6 +30,8 @@ import hashlib
 import argparse
 import binascii
 import time
+#remove later
+from time import time as gettime
 #ersetzen
 try:
     import RS_SeqBox.seqbox as seqbox
@@ -105,12 +107,13 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
 
     #read in bytes
     buffer = fin.read(sbx.blocksize)
+
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
 
     #decode header with reed solomon
     buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
-
+    
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:
@@ -201,15 +204,22 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         count_of_blocks = metadata["filesize"] / sbx.raw_data_size_read_into_1_block
     else:
         count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
+    list_of_times = []
+
+    rsc = sbx.rsc_for_data_block
 
     while True:
+        
         buffer = fin.read(sbx.blocksize)
         if len(buffer) < sbx.blocksize:
             break
         try:
             blocknumber+=1
-            buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
-
+            START_TIME_DECODING = gettime()
+            buffer = rsc.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0]
+            FINISH_TIME_DECODING = gettime()
+            #print("TIME:",FINISH_TIME_DECODING - START_TIME_DECODING)
+            list_of_times.append(FINISH_TIME_DECODING - START_TIME_DECODING)
             #LastBlock check
             if blocknumber == count_of_blocks+1:
                 #cut padding
@@ -228,6 +238,8 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 d.update(sbx.data) 
             if not test:
                 fout.write(sbx.data)
+            
+            
 
         except seqbox.SbxDecodeError as err:
             if cont:
@@ -237,13 +249,17 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 print(err)
                 #errexit(errlev=1, mess="invalid block at offset %s" %
                         #(hex(fin.tell()-sbx.blocksize)))
-
+        
+        
         #some progress report
         if time.time() > updatetime: 
             print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
                   end="\r", flush=True)
             updatetime = time.time() + .1
-
+    sum = 0         
+    for times in list_of_times:
+                sum+=times
+    print("TOTAL TIME",sum)
     fin.close()
     if not test:
         fout.close()
@@ -302,9 +318,6 @@ def main():
     #check magic and get version
     header = fin.read(4)
     fin.seek(0, 0)
-    if cmdline.password:
-        e = seqbox.EncDec(cmdline.password, len(header))
-        header= e.xor(header)
     
     sbxver = cmdline.sbxver
     sbx = seqbox.SbxBlock(ver=sbxver)
@@ -320,10 +333,10 @@ def main():
     buffer = fin.read(sbx.blocksize)
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
-
+    print(buffer)
     #decode header with reed solomon
     buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
-
+    print(buffer)
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:

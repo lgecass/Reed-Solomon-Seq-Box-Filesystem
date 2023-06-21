@@ -245,10 +245,10 @@ def main():
                         "sbxdatetime":int(gettime()),
                         "hash":b'\x12\x20'+sha256,#multihash
                         "padding_last_block":0,} 
+    
     fout.write(sbx.encode())
     
     #write all other blocks
-
     updatetime = gettime() 
     time_list=[]
     while True:

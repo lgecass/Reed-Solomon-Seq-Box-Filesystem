@@ -9,10 +9,10 @@ print("LEN MESSAGE,",len(text))
 
 
 
-rsc=crs.RSCodec(redundancy)
+rsc=crs.RSCodec(redundancy, c_exp=12)
 
 encoded_message = bytes(rsc.encode(bytearray(text)))
-
+print(encoded_message)
 print("LEN ENCODED", len(encoded_message))
 #print(encoded_message)
 decoded_message = bytes(rsc.decode(bytearray(encoded_message))[0])

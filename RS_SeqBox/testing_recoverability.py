@@ -68,10 +68,11 @@ for k in range(0,len(procent_of_tampering)):
 os.remove(tampered_file_name)
 os.remove(file_to_create)
 os.remove(encoded_file)
+print(results)
 os.remove("save.txt")
 
 
-print(results)
+
 
 
 

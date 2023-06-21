@@ -3,8 +3,8 @@ import sbxdec as Decoder
 from time import time as gettime
 import os
 
-file_size_to_encode = 100 # bytes
-repetitions = 100
+file_size_to_encode = 10000000 # bytes
+repetitions = 1
 filename = "file_to_test.txt"
 
 f = open(filename, "w")
