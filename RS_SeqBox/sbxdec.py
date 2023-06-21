@@ -62,9 +62,8 @@ def get_cmdline():
                         help="continue on block errors", dest="cont")
     parser.add_argument("-o", "--overwrite", action="store_true", default=False,
                         help="overwrite existing file")
-    parser.add_argument("-p", "--password", type=str, default="",
-                        help="encrypt with password", metavar="pass")
-    parser.add_argument("-redundancylevel", "--redundancylevel",type=int, default=2, help="How much redundancy Data should be added. Level 2 > Level 1")
+    parser.add_argument("-sv", "--sbxver", type=int, default=1,
+                        help="SBX blocks version", metavar="n")
     res = parser.parse_args()
     return res
 
@@ -75,7 +74,7 @@ def errexit(errlev=1, mess=""):
                          (os.path.split(sys.argv[0])[1], mess))
     sys.exit(errlev)
 
-def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,redundancylevel=2):
+def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,sbx_version=1):
     
     sbxfilename = sbxfilename
     filename = filename
@@ -93,12 +92,9 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     #check magic and get version
     header = fin.read(4)
     fin.seek(0, 0)
-    if password:
-        e = seqbox.EncDec(password, len(header))
-        header= e.xor(header)
-    
-    sbxver = 1
-    sbx = seqbox.SbxBlock(ver=sbxver, redundancy=redundancylevel)
+
+    sbxver = sbx_version
+    sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
     trimfilesize = False
     
@@ -233,7 +229,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             if not test:
                 fout.write(sbx.data)
 
-        except seqbox_main.SbxDecodeError as err:
+        except seqbox.SbxDecodeError as err:
             if cont:
                 blockmiss += 1
                 lastblocknum += 1
@@ -278,15 +274,12 @@ def decode_whole_directory(path_to_directory):
             walk_result = []
             for result in os.walk(path_to_directory):
                 walk_result= result
-                #print(result[2])
             for files in walk_result[2]:
                 list_of_files.append(walk_result[0]+files)
             
-            #print(list_of_files)
             for file in list_of_files:
                 if str(file).endswith(".sbx"):
                     sbx_files.append(file)
-            print("files",sbx_files)
     for sbxfile in sbx_files:
         decode(sbxfile,sbxfile[:-4],info=False,test=False,cont=False, overwrite=True)
                      
@@ -310,11 +303,11 @@ def main():
     header = fin.read(4)
     fin.seek(0, 0)
     if cmdline.password:
-        e = seqbox_main.EncDec(cmdline.password, len(header))
+        e = seqbox.EncDec(cmdline.password, len(header))
         header= e.xor(header)
     
-    sbxver = 1
-    sbx = seqbox_main.SbxBlock(ver=sbxver, redundancy=cmdline.redundancylevel)
+    sbxver = cmdline.sbxver
+    sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
     trimfilesize = False
     
@@ -348,7 +341,7 @@ def main():
                 hashcheck = True
         if "redundancy_level" in metadata:
             redundancy_level = metadata["redundancy_level"]
-            sbx_redundancy = seqbox_main.SbxBlock(ver=sbxver, redundancy=redundancy_level)
+            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, redundancy=redundancy_level)
             sbx_redundancy.metadata = sbx.metadata
             sbx = sbx_redundancy
     else:
@@ -386,7 +379,7 @@ def main():
                 else:
                     print("hash type not recognized!")
             
-        sys.exit(0)
+        sys.exit(0) 
 
     #evaluate target filename
     if not cmdline.test:
@@ -423,6 +416,7 @@ def main():
         count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
 
     while True:
+
         buffer = fin.read(sbx.blocksize)
         if len(buffer) < sbx.blocksize:
             break
@@ -449,7 +443,7 @@ def main():
             if not cmdline.test:
                 fout.write(sbx.data)
 
-        except seqbox_main.SbxDecodeError as err:
+        except seqbox.SbxDecodeError as err:
             if cmdline.cont:
                 blockmiss += 1
                 lastblocknum += 1

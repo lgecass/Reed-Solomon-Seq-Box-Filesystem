@@ -31,8 +31,7 @@ import sys
 #from reedsolo import ReedSolomonError, RSCodec
 import creedsolo.creedsolo as crs
 
-supported_vers = [1]
-supported_redundancy = [1,2]
+supported_vers = [1,2]
 
 #Some custom exceptions
 class SbxError(Exception):
@@ -44,28 +43,29 @@ class SbxBlock():
     """
     Implement a basic SBX block
     """
-    def __init__(self, ver=1, uid="r", redundancy=2):
+    def __init__(self, ver=1, uid="r",pswd=""):
         self.ver = ver
         self.padding_last_block = 0
 
         if ver == 1:
-            self.blocksize = 512
-            self.hdrsize = 16
-            if redundancy == 1:
-                self.redsize = 70
-                self.redsym = 34
-                self.padding_normal_block = 2
-                self.raw_data_size_read_into_1_block = 426
-            if redundancy == 2:
-                self.redsize = 218
-                self.redsym = 108
-                self.padding_normal_block = 2
-                self.raw_data_size_read_into_1_block = 278
+            self.blocksize = 512 #Total Block size
+            self.hdrsize = 16 #Header size
+            self.redsize = 218 #How much redundancy data is added
+            self.redsym = 108 #How many ECC symbols are used
+            self.padding_normal_block = 2 #What Padding occurs at the end of normal blocks
+            self.raw_data_size_read_into_1_block = 278 #How many bytes can be read from the file
             self.rsc_for_data_block = crs.RSCodec(self.redsym)
+        if ver == 2:
+            self.blocksize = 4096 
+            self.hdrsize = 16
+            self.redsize = 1728
+            self.redsym = 107
+            self.padding_normal_block = 16
+            self.raw_data_size_read_into_1_block = 2352
+            self.rsc_for_data_block = crs.RSCodec(self.redsym)
+            
         if not supported_vers.__contains__(ver):
             raise SbxError("version %i not supported" % ver)
-        if not supported_redundancy.__contains__(redundancy):
-            raise SbxError("redundancy Level %i not supported" % redundancy)
 
         self.datasize = self.blocksize - self.hdrsize
         self.magic = b'SBx' + bytes([ver])
@@ -77,9 +77,6 @@ class SbxBlock():
             self.uid = random.getrandbits(6*8).to_bytes(6, byteorder='big')
         else:
             self.uid = (b'\x00'*6 + uid)[-6:]
-
-        
-        self.encdec = False
 
         self.parent_uid = 0
         self.metadata = {}
@@ -127,27 +124,22 @@ class SbxBlock():
             block = self.rsc_for_data_block.encode(bytearray(block))
             block = bytes(block) + b'\x1A' * (self.blocksize - len(block))
         else: 
-                buffer = (self.uid +
-                  self.blocknum.to_bytes(4, byteorder='big') +
-                  self.data)
+                buffer = (self.uid + self.blocknum.to_bytes(4, byteorder='big') + self.data)
                 crc = binascii.crc_hqx(buffer, self.ver).to_bytes(2,byteorder='big')
-                #Assemble whole 512 byte Block
+                #Assemble whole Block
                 block = self.magic + crc + buffer
-
                 block = bytes(self.rsc_for_data_block.encode(bytearray(block)))
+            
                 len_before_padding = len(block)
-                block = block + b'\x1A' * (512 - len(block))
+                block = block + b'\x1A' * (self.blocksize - len(block))
                 len_after_padding = len(block)
                 self.padding_last_block = len_after_padding -len_before_padding   
-                
         return block
 
     def decode(self, buffer):
         #start setting an invalid block number
         self.blocknum = -1
         #decode eventual password
-        if self.encdec:
-            buffer = self.encdec.xor(buffer)
         #check the basics
         if buffer[:3] != self.magic[:3]:
             print("not an SBX block")

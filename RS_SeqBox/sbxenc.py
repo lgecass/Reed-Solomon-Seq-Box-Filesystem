@@ -64,7 +64,6 @@ def get_cmdline():
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
     parser.add_argument("-verbose", "--verbose", action="store_true", default=False, help="Show extended Information")
-    parser.add_argument("-redundancylevel", "--redundancylevel",type=int, default=2, help="How much redundancy Data should be added. Level 2 > Level 1")
     res = parser.parse_args()
     return res
 
@@ -83,7 +82,7 @@ def getsha256(filename):
             d.update(buf)
     return d.digest()
 
-def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundancylevel=2):
+def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1):
     
     #filename to encode
     filename = filename
@@ -113,16 +112,12 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
-    #print("hashing file '%s'..." % (filename))
     sha256 = getsha256(filename)
-    #print("SHAA",sha256)
-    #print("SHA256",binascii.hexlify(sha256).decode())
-    #print("fin:", filename)
 
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=uid, ver=sbxver, redundancy=redundancylevel)
+    sbx = seqbox.SbxBlock(uid=uid, ver=sbxver)
 
     #write metadata block 0
     sbx.metadata = {"filesize":filesize,
@@ -131,8 +126,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(gettime()),
                         "hash":b'\x12\x20'+sha256,#multihash
-                        "padding_last_block":0,
-                        "redundancy_level":redundancylevel} 
+                        "padding_last_block":0,} 
     fout.write(sbx.encode())
     
     #write all other blocks
@@ -141,7 +135,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1,redundan
     time_list=[]
     while True:
         #Reads data from file 
-        buffer = fin.read(sbx.datasize - sbx.redsize)
+        buffer = fin.read(sbx.raw_data_size_read_into_1_block)
 
         #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
@@ -236,16 +230,12 @@ def main():
     fout = open(sbxfilename, "wb", buffering=1024*1024)
 
     #calc hash - before all processing, and not while reading the file,
-    #print("hashing file '%s'..." % (filename))
     sha256 = getsha256(filename)
-    #print("SHAA",sha256)
-    #print("SHA256",binascii.hexlify(sha256).decode())
-    #print("fin:", filename)
 
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, redundancy=cmdline.redundancylevel)
+    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver)
 
     #write metadata block 0
     sbx.metadata = {"filesize":filesize,
@@ -254,8 +244,7 @@ def main():
                         "filedatetime":int(os.path.getmtime(filename)),
                         "sbxdatetime":int(gettime()),
                         "hash":b'\x12\x20'+sha256,#multihash
-                        "padding_last_block":0,
-                        "redundancy_level":cmdline.redundancylevel} 
+                        "padding_last_block":0,} 
     fout.write(sbx.encode())
     
     #write all other blocks
@@ -264,8 +253,7 @@ def main():
     time_list=[]
     while True:
         #Reads data from file 
-        buffer = fin.read(sbx.datasize - sbx.redsize)
-
+        buffer = fin.read(sbx.raw_data_size_read_into_1_block)
         #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
             #if file ended and no more data to be read:
@@ -303,6 +291,7 @@ def main():
         START_TIME = gettime()
 
         data = sbx.encode()
+        
         #calculate time 
         time_list.append(gettime() - START_TIME)
         #write to file
