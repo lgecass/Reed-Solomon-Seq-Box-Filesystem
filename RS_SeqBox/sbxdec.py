@@ -30,9 +30,6 @@ import hashlib
 import argparse
 import binascii
 import time
-#remove later
-from time import time as gettime
-#ersetzen
 try:
     import RS_SeqBox.seqbox as seqbox
 except ImportError:
@@ -215,11 +212,9 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             break
         try:
             blocknumber+=1
-            START_TIME_DECODING = gettime()
+
             buffer = rsc.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0]
-            FINISH_TIME_DECODING = gettime()
-            #print("TIME:",FINISH_TIME_DECODING - START_TIME_DECODING)
-            list_of_times.append(FINISH_TIME_DECODING - START_TIME_DECODING)
+
             #LastBlock check
             if blocknumber == count_of_blocks+1:
                 #cut padding
@@ -256,10 +251,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
                   end="\r", flush=True)
             updatetime = time.time() + .1
-    sum = 0         
-    for times in list_of_times:
-                sum+=times
-    print("TOTAL TIME",sum)
+
     fin.close()
     if not test:
         fout.close()
