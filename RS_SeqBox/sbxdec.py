@@ -76,7 +76,7 @@ def errexit(errlev=1, mess=""):
                          (os.path.split(sys.argv[0])[1], mess))
     sys.exit(errlev)
 
-def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,sbx_version=1):
+def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,sbx_ver=1):
     
     sbxfilename = sbxfilename
     filename = filename
@@ -95,7 +95,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     header = fin.read(4)
     fin.seek(0, 0)
 
-    sbxver = sbx_version
+    sbxver = sbx_ver
     sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
     trimfilesize = False

@@ -137,7 +137,6 @@ class SbxBlock():
         return block
 
     def decode(self, buffer):
-        print(buffer)
         #start setting an invalid block number
         self.blocknum = -1
         #decode eventual password
@@ -149,13 +148,14 @@ class SbxBlock():
            print(buffer[3])
            print("block not supported")
            #raise SbxDecodeError("block v%i not supported" % buffer[3])
-
-        self.parent_uid = 0
+        #check CRC of rest of the block
+        
+        
 
         self.uid = buffer[6:12]
         self.blocknum = int.from_bytes(buffer[12:16], byteorder='big')
         self.data = buffer[16:]
-       
+        self.parent_uid = 0
 
         self.metadata = {}
 

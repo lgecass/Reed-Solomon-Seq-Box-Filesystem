@@ -5,6 +5,7 @@ import os
 
 file_size_to_encode = 10000000 # bytes
 repetitions = 1
+sbxversion = 2
 filename = "file_to_test.txt"
 
 f = open(filename, "w")
@@ -21,7 +22,7 @@ time_list_decoding = []
 for i in range(0,repetitions):
 
       START_TIME_ENCODING = gettime()
-      Encoder.encode(filename)
+      Encoder.encode(filename,sbx_ver=sbxversion)
       TIME_AFTER_ENCODING = gettime() 
 
       encoding_time = TIME_AFTER_ENCODING - START_TIME_ENCODING
@@ -30,7 +31,7 @@ for i in range(0,repetitions):
       time_list_encoding.append(encoding_time)
       
       START_TIME_DECODING = gettime()
-      Decoder.decode(filename+".sbx", overwrite= True)
+      Decoder.decode(filename+".sbx", overwrite= True,sbx_ver=sbxversion)
       TIME_AFTER_DECODING = gettime() 
 
       decoding_time = TIME_AFTER_DECODING - START_TIME_DECODING

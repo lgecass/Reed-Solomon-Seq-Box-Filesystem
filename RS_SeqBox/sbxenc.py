@@ -82,7 +82,7 @@ def getsha256(filename):
             d.update(buf)
     return d.digest()
 
-def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1):
+def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1):
     
     #filename to encode
     filename = filename
@@ -117,7 +117,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbxver=1):
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=uid, ver=sbxver)
+    sbx = seqbox.SbxBlock(uid=uid, ver=sbx_ver)
 
     #write metadata block 0
     sbx.metadata = {"filesize":filesize,
