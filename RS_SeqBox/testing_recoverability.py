@@ -11,8 +11,8 @@ class SbxDecodeError(SbxError):
     pass
 
 #Variables you can change
-run_count=1
-data_size_in_bytes = 100000
+run_count=10
+data_size_in_bytes = 3000000
 sbx_version = 2
 #till here
 
@@ -29,7 +29,7 @@ for k in range(0,len(procent_of_tampering)):
     print("File filled with ",data_size_in_bytes ," bytes")
     f.close()
       
-    Encoder.encode(file_to_create, sbxver= sbx_version)
+    Encoder.encode(file_to_create, sbx_ver= sbx_version)
     encoded_file = file_to_create+".sbx"
     file_size = os.stat(encoded_file).st_size        
     print("File is", file_size, "bytes big")
@@ -56,7 +56,7 @@ for k in range(0,len(procent_of_tampering)):
         f.write(file_sbx_encoded_copy)
         f.close()
         try:
-            Decoder.decode(tampered_file_name,filename="save.txt",overwrite=True,sbx_version=sbx_version)
+            Decoder.decode(tampered_file_name,filename="save.txt",overwrite=True,sbx_ver=sbx_version)
         except crs.ReedSolomonError:
             print("ERROR REED SOLOMON")
             counts_of_failure+=1
