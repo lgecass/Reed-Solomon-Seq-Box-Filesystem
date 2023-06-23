@@ -50,6 +50,7 @@ from collections import defaultdict
 import trio
 import RS_SeqBox.sbxenc as sbxenc
 import RS_SeqBox.sbxdec as sbxdec
+import RS_SeqBox.seqbox as seqbox
 import creedsolo.creedsolo as crs
 
 
@@ -59,17 +60,17 @@ faulthandler.enable()
 log = logging.getLogger(__name__)
 
 active_sbx_encodings = []
-def decode_header_block_with_rsc(buffer):
-    redundancy=108
-    rsc=crs.RSCodec(redundancy)
-    decoded = bytes(rsc.decode(bytearray(buffer[:-2]))[0])
+def decode_header_block_with_rsc(buffer, sbx_version):
+    sbx = seqbox.SbxBlock(ver=sbx_version)
+    rsc=crs.RSCodec(sbx.redsym)
+    decoded = bytes(rsc.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
     return decoded
 
 def check_if_sbx_file_exists(path_of_normal_file):
     return os.path.exists(path_of_normal_file+".sbx")
 
 def compare_hash_sbxfile_normalfile(normal_file_hash,sbx_file_hash):
-    if(normal_file_hash == sbx_file_hash):
+    if normal_file_hash == sbx_file_hash:
         return True
     return False
 
@@ -82,16 +83,18 @@ def get_hash_of_normal_file(path_to_file):
     return d.digest()
 
 #Checks integrity of any File  
-def get_hash_of_sbx_file(path_to_file):
+def get_hash_of_sbx_file(path_to_file, sbx_version):
     print("Checking integrity of ", path_to_file)
     if not os.path.exists(path_to_file):
         print(1, "sbx file '%s' not found" % (path_to_file))
         return
+    
+    sbx = seqbox.SbxBlock(ver=sbx_version)
     fin = open(path_to_file, "rb", buffering=1024*1024)
     
-    buffer = fin.read(512)
+    buffer = fin.read(sbx.blocksize)
 
-    buffer = bytes(decode_header_block_with_rsc(buffer))
+    buffer = bytes(decode_header_block_with_rsc(buffer, sbx_version))
 
     header = buffer[:3]
 
@@ -136,36 +139,40 @@ def get_hash_of_sbx_file(path_to_file):
 
     
     #Creates shielded File in the mirror directory
-def create_shielded_version_of_file(path_to_file):
+def create_shielded_version_of_file(path_to_file, sbx_version):
     #check if hash is equal
+    sbx = seqbox.SbxBlock(ver=sbx_version)
+
     if path_to_file.endswith(".sbx"):
         if not os.path.exists(path_to_file.split(".sbx")[0]):
-            sbxdec.decode(path_to_file)
+            sbxdec.decode(path_to_file, sbx_ver=sbx.ver)
+            active_sbx_encodings.remove(path_to_file)
             return
 
-        if get_hash_of_sbx_file(path_to_file) == get_hash_of_normal_file(path_to_file.split(".sbx")[0]):
+        if get_hash_of_sbx_file(path_to_file, sbx_ver=sbx_version) == get_hash_of_normal_file(path_to_file.split(".sbx")[0]):
             print("Hash of Files dont match")
-            sbxdec.decode(path_to_file)
+            sbxdec.decode(path_to_file,sbx_ver=sbx.ver)
+            active_sbx_encodings.remove(path_to_file)
             return
         else:
             return
     print("Creating shielded version of File")
-    
-    sbxenc.encode(path_to_file,sbxfilename=path_to_file+".sbx")    
+    sbxenc.encode(path_to_file,sbxfilename=path_to_file+".sbx", sbx_ver=sbx.ver)    
     print("file encoded")
     active_sbx_encodings.remove(path_to_file)
 
 
-def unshield_file(path_to_file):
+def unshield_file(path_to_file, sbx_version):
     print("Unshielding file")
-    sbxdec.decode(path_to_file+".sbx", overwrite=True)
+    sbxdec.decode(path_to_file+".sbx", overwrite=True, sbx_ver=sbx_version)
 
 class Operations(pyfuse3.Operations):
 
     enable_writeback_cache = True
 
-    def __init__(self, source):
+    def __init__(self, source, sbx_version):
         super().__init__()
+        self.sbx_version = sbx_version
         self.shield_dir=source
         self._inode_path_map = { pyfuse3.ROOT_INODE: source }
         self._lookup_cnt = defaultdict(lambda : 0)
@@ -178,7 +185,6 @@ class Operations(pyfuse3.Operations):
     
 
     def _inode_to_path(self, inode):
-
         try:
             val = self._inode_path_map[inode]
         except KeyError:
@@ -191,6 +197,7 @@ class Operations(pyfuse3.Operations):
         return val
 
     def _add_path(self, inode, path):
+        print("add_path")
 
         log.debug('_add_path for %d, %s', inode, path)
         self._lookup_cnt[inode] += 1
@@ -207,6 +214,7 @@ class Operations(pyfuse3.Operations):
             self._inode_path_map[inode] = { path, val }
 
     async def forget(self, inode_list):
+        print("forget")
         for (inode, nlookup) in inode_list:
             if self._lookup_cnt[inode] > nlookup:
                 self._lookup_cnt[inode] -= nlookup
@@ -220,6 +228,7 @@ class Operations(pyfuse3.Operations):
                 pass
 
     async def lookup(self, inode_p, name, ctx=None):
+        print("lookup")
         name = fsdecode(name)
         log.debug('lookup for %s in %d', name, inode_p)
         path = os.path.join(self._inode_to_path(inode_p), name)
@@ -229,6 +238,7 @@ class Operations(pyfuse3.Operations):
         return attr
 
     async def getattr(self, inode, ctx=None):
+        print("getattr")
         if inode in self._inode_fd_map:
             return self._getattr(fd=self._inode_fd_map[inode])
         else:
@@ -259,6 +269,7 @@ class Operations(pyfuse3.Operations):
         return entry
 
     async def readlink(self, inode, ctx):
+        print("readlink")
         path = self._inode_to_path(inode)
         try:
             target = os.readlink(path)
@@ -270,9 +281,12 @@ class Operations(pyfuse3.Operations):
         return inode
 
     async def readdir(self, inode, off, token):
+        print("readdir")
         path = self._inode_to_path(inode)
         log.debug('reading %s', path)
         entries = []
+        if not os.path.exists(path):
+            return
         for name in os.listdir(path):
             if name == '.' or name == '..' or name.endswith(".sb.rs"):
                 continue
@@ -496,7 +510,7 @@ class Operations(pyfuse3.Operations):
         return stat_
 
     async def open(self, inode, flags, ctx):
-        
+        print("open")
         #Before file is being read it is first opened
         #check Integrity of file here
         if inode in self._inode_fd_map:
@@ -514,14 +528,14 @@ class Operations(pyfuse3.Operations):
             else:
                 if not file_path.endswith(".sbx"):
                     print("active",active_sbx_encodings)
-                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx")):
+                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx", sbx_version=self.sbx_version)):
                         print("Hashes Match or file being deleted")
                         fd = os.open(file_path, flags)
                     else:
                         print("Hashes dont match")
                         if os.path.exists(file_path+".sbx"):
                             if os.lstat(file_path+".sbx").st_size > 0:
-                                unshield_file(file_path)
+                                unshield_file(file_path, self.sbx_version)
                                 fd = os.open(file_path, flags)
                         else:
                             print("File does not exist because it is being renamed")
@@ -569,7 +583,7 @@ class Operations(pyfuse3.Operations):
         return os.write(fd, buf)
 
     async def release(self, fd):
-
+        print("Release")
         if self._fd_open_count[fd] > 1:
             self._fd_open_count[fd] -= 1
             return
@@ -589,11 +603,11 @@ class Operations(pyfuse3.Operations):
                 if path_to_file.endswith(".trashinfo") or path_to_file.__contains__(".trashinfo"):
                     return
                 if check_if_sbx_file_exists(path_to_file):
-                    if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx"):
+                    if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx",self.sbx_version):
                         if not active_sbx_encodings.__contains__(path_to_file):
                             print("HASHES DONT MATCH")
                             active_sbx_encodings.append(path_to_file)
-                            create_shielded_version_of_file(path_to_file)
+                            create_shielded_version_of_file(path_to_file, self.sbx_version)
                             
                         else:
                             print("File is already being processed")
@@ -603,7 +617,7 @@ class Operations(pyfuse3.Operations):
                     print("Threading")
                     if not active_sbx_encodings.__contains__(path_to_file):
                         active_sbx_encodings.append(path_to_file)
-                        create_shielded_version_of_file(path_to_file)
+                        create_shielded_version_of_file(path_to_file,self.sbx_version)
                         
         
         except OSError as exc:
@@ -637,16 +651,24 @@ def parse_args(args):
                         help='Enable debugging output')
     parser.add_argument('--debug-fuse', action='store_true', default=False,
                         help='Enable FUSE debugging output')
-    parser.add_argument('--redundancylevel')
+    parser.add_argument("-sv", "--sbxver", type=int, default=1,
+                        help="SBX blocks version", metavar="n")
     return parser.parse_args(args)
 
 def main():
 
+    
     options = parse_args(sys.argv[1:])
-
+    print("VERSION",options.sbxver)
+    
+    sbx_versions = [1,2]
+    if not sbx_versions.__contains__(options.sbxver):
+        exit("Sbxversion "+ str(options.sbxver)+" not available. Version 1 : 512 Byte Blocks, Version 2 : 4096 Byte blocks")
+    
     init_logging(options.debug)
-
-    operations = Operations(options.source)
+    
+    
+    operations = Operations(options.source, options.sbxver)
 
     log.debug('Mounting...')
 
