@@ -12,16 +12,16 @@ class SbxDecodeError(SbxError):
 
 #Variables you can change
 run_count=1
-data_size_in_bytes = 1000000
-sbx_version = 1
+data_size_in_bytes = 3145728
+sbx_version = 2
 #until here
 
-procent_of_tampering = [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.17,0.18,0.19,0.20,0.21,0.22,0.23,0.24,0.26,0.27,0.28,0.29,0.30,0.31,0.32]
-results = [0] * len(procent_of_tampering)
+
+results = []
 print(results)
-for k in range(0,len(procent_of_tampering)):    
+for k in range(1,int(data_size_in_bytes*0.0001)):    
     counts_of_failure = 0
-    file_to_create = "test_file.txt"
+    file_to_create = "test_file_consecutive.txt"
     print("File ", file_to_create , " created")
     f = open(file_to_create, "w")
     f.write('Y'*data_size_in_bytes)
@@ -37,39 +37,39 @@ for k in range(0,len(procent_of_tampering)):
 
     file_sbx_encoded= bytearray(f.read())
     f.close()
-    count_of_bytes_to_be_tampered = int(file_size*procent_of_tampering[k])
+
+    maximal_bytes_to_change = data_size_in_bytes
     for j in range(0,run_count):
-
+        count_of_bytes_to_be_tampered = k
         file_sbx_encoded_copy = file_sbx_encoded.copy()
-        list_of_positions_to_tamper = []
-        for i in range (0,count_of_bytes_to_be_tampered):
-            list_of_positions_to_tamper.append(random.randint(0,file_size-1))
-
-        for i in range(0,len(list_of_positions_to_tamper)-1):
-            file_sbx_encoded_copy[list_of_positions_to_tamper[i]] = 1
+        #position where consecutive bytes are exchanged
+        position_to_tamper = random.randint(0,file_size-count_of_bytes_to_be_tampered)
 
 
-        tampered_file_name = "tampered_file.txt.sbx"
+        for i in range(0,count_of_bytes_to_be_tampered):
+            file_sbx_encoded_copy[position_to_tamper+i] = 11
+
+
+
+        tampered_file_name = "tampered_file_consecutive.txt.sbx"
 
         f = open(tampered_file_name,"wb")
         f.write(file_sbx_encoded_copy)
         f.close()
         try:
-            Decoder.decode(tampered_file_name,filename="save.txt",overwrite=True,sbx_ver=sbx_version)
+            Decoder.decode(tampered_file_name,filename="save_consecutive.txt",overwrite=True,sbx_ver=sbx_version)
         except crs.ReedSolomonError:
-            print("ERROR REED SOLOMON")
             counts_of_failure+=1
-            
         except SbxDecodeError:
-            print("ERROR SBX DECODE")
             counts_of_failure+=1
-    results[k] = counts_of_failure
+
+    results.append(counts_of_failure)
 os.remove(tampered_file_name)
 os.remove(file_to_create)
 os.remove(encoded_file)
-print(results)
-os.remove("save.txt")
 
+os.remove("save_consecutive.txt")
+print(results)
 
 
 

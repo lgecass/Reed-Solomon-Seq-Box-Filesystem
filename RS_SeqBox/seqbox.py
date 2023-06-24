@@ -54,7 +54,7 @@ class SbxBlock():
             self.redsym = 108 #How many ECC symbols are used
             self.padding_normal_block = 2 #What Padding occurs at the end of normal blocks
             self.raw_data_size_read_into_1_block = 278 #How many bytes can be read from the file
-            self.rsc_for_data_block = crs.RSCodec(self.redsym)
+            self.rsc_for_data_block = crs.RSCodec(self.redsym) #rsc means Reed-Solomon_Code
         if ver == 2:
             self.blocksize = 4096 
             self.hdrsize = 16
