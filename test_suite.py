@@ -3,7 +3,9 @@ import RS_SeqBox.sbxdec as Decoder
 import os
 import pytest
 from reedsolo import ReedSolomonError 
-
+import subprocess
+import time
+import shutil
 #Helper method to create files
 def create_file(filename,content):
     with open(filename, 'w') as file:
@@ -117,7 +119,6 @@ def test_decoded_correct_name_in_main_method():
     os.system("python ./RS_SeqBox/sbxdec.py test_file.txt.sbx test_file_other.txt")
     assert os.path.exists("test_file_other.txt")
 
-
 @pytest.fixture(autouse=True)
 def cleanup():
     yield
@@ -129,4 +130,4 @@ def cleanup():
         os.remove("test_file_other.txt")    
     if os.path.exists("test_file_my_wish.txt.sbx"):
         os.remove("test_file_my_wish.txt.sbx")
-        
+    

@@ -58,5 +58,4 @@ shield_directory keeps files permanently even after the filesystem is unmounted.
 `python ./RS_SeqBox/sbxdec.py <file to decode>`
 ## Code attribution and modifications
 Some of the code in this repository is based on the work of Marco Pontello (© 2017). The original code can be found here (https://github.com/MarcoPon/SeqBox). <br/> 
-### I have made the following modifications: <br/>
-`...`
+

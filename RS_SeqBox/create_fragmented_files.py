@@ -3,8 +3,7 @@ import random
 import threading
 
 def create_fragmented_files(directory, num_files, max_file_size,num_thread):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+   
 
     for i in range(num_files):
         file_name = "fileImportant"+str(num_thread)+str(i)+".txt"
@@ -19,13 +18,14 @@ def create_fragmented_files(directory, num_files, max_file_size,num_thread):
         file.close()
 
 # Specify the directory where the files will be created
-directory = "/home/luge/Desktop/working_directory"
-
+directory = "/home/luge/Desktop/working_directory/"
+if not os.path.exists(directory):
+        os.makedirs(directory)
 # Specify the number of files to create
-num_files = 40
+num_files = 10
 
 # Specify the maximum file size in bytes
-max_file_size = 2245235
+max_file_size = 5000000
 
 # Call the function to create the fragmented files
 x = threading.Thread(target=create_fragmented_files, args=(directory,num_files,max_file_size,1))
