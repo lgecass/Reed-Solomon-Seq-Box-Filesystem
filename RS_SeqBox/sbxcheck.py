@@ -139,7 +139,7 @@ def get_hash_of_normal_file(path_to_file):
 
 def check_whole_directory(path_to_directory, sbx_ver, recursively = False):
     if not os.path.exists(path_to_directory) or not os.path.isdir(path_to_directory):
-        print("directory does not exist or ist not a directory")
+        print("directory does not exist or is not a directory")
         return
     
     list_of_files = []
@@ -171,8 +171,6 @@ def check_whole_directory(path_to_directory, sbx_ver, recursively = False):
         hash_inside_sbx_file = get_hash_of_sbx_file(file+".sbx", sbx_version=sbx_ver)
         
         if hash_of_file != hash_inside_sbx_file:
-            print(hash_of_file)
-            print(hash_inside_sbx_file)
             files_needing_repair.append(file)
     
     if len(files_needing_repair) == 0:
@@ -185,8 +183,7 @@ def check_whole_directory(path_to_directory, sbx_ver, recursively = False):
     if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
         for file in files_needing_repair:
             sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True)
-    else:
-        print("files not getting repaired")        
+    
 
 
 
