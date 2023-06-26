@@ -61,6 +61,8 @@ def get_cmdline():
                         help="continue on block errors", dest="cont")
     parser.add_argument("-o", "--overwrite", action="store_true", default=False,
                         help="overwrite existing file")
+    parser.add_argument("-raid", "--raid", action="store_true", default=False,
+                        help="Use .raid file to extend decoding capability")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
     res = parser.parse_args()
@@ -73,8 +75,7 @@ def errexit(errlev=1, mess=""):
                          (os.path.split(sys.argv[0])[1], mess))
     sys.exit(errlev)
 
-def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,sbx_ver=1):
-    
+def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,sbx_ver=1, raid=False):
     sbxfilename = sbxfilename
     filename = filename
     if os.path.isdir(sbxfilename):
@@ -87,15 +88,16 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     
     print("decoding '%s'..." % (sbxfilename))
     fin = open(sbxfilename, "rb", buffering=1024*1024)
+    raid_exists = os.path.exists(sbxfilename+".raid") and raid == True
 
-    #check magic and get version
-    header = fin.read(4)
+    if raid_exists:
+        fin_raid = open(sbxfilename+".raid", "rb", buffering=1024*1024)
+        fin_raid.seek(0,0)
     fin.seek(0, 0)
-
+    
     sbxver = sbx_ver
     sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
-    trimfilesize = False
     
     hashtype = 0
     hashlen = 0
@@ -103,14 +105,23 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     hashcheck = False
 
     #read in bytes
+
     buffer = fin.read(sbx.blocksize)
-
+    if raid_exists:
+        buffer_raid = fin_raid.read(sbx.blocksize)
     #set symbols for reed solomon
-    rsc_for_header_block = crs.RSCodec(sbx.redsym)
 
+    rsc_for_header_block = crs.RSCodec(sbx.redsym)
     #decode header with reed solomon
-    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
-    
+    try:
+        buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+    except crs.ReedSolomonError:
+        #trying Raid copy
+        if raid_exists:
+            try:
+                buffer=bytes(rsc_for_header_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
+            except crs.ReedSolomonError:
+                pass
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:
@@ -126,11 +137,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
-        if "redundancy_level" in metadata:
-            redundancy_level = metadata["redundancy_level"]
-            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, redundancy=redundancy_level)
-            sbx_redundancy.metadata = sbx.metadata
-            sbx = sbx_redundancy
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -166,7 +172,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 else:
                     print("hash type not recognized!")
             
-        sys.exit(0)
+        sys.exit(0) 
 
     #evaluate target filename
     if not test:
@@ -201,19 +207,25 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         count_of_blocks = metadata["filesize"] / sbx.raw_data_size_read_into_1_block
     else:
         count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
-    list_of_times = []
-
-    rsc = sbx.rsc_for_data_block
 
     while True:
-        
         buffer = fin.read(sbx.blocksize)
+        if raid_exists:
+            buffer_raid = fin_raid.read(sbx.blocksize)
+            
         if len(buffer) < sbx.blocksize:
             break
         try:
             blocknumber+=1
-
-            buffer = rsc.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0]
+            if raid_exists:
+                try:
+                    buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+                except crs.ReedSolomonError:
+                    #trying Raid copy
+                    if raid_exists:
+                            buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
+            else:
+                    buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
 
             #LastBlock check
             if blocknumber == count_of_blocks+1:
@@ -233,8 +245,6 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 d.update(sbx.data) 
             if not test:
                 fout.write(sbx.data)
-            
-            
 
         except seqbox.SbxDecodeError as err:
             if cont:
@@ -244,8 +254,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 print(err)
                 #errexit(errlev=1, mess="invalid block at offset %s" %
                         #(hex(fin.tell()-sbx.blocksize)))
-        
-        
+
         #some progress report
         if time.time() > updatetime: 
             print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
@@ -306,15 +315,16 @@ def main():
     
     print("decoding '%s'..." % (sbxfilename))
     fin = open(sbxfilename, "rb", buffering=1024*1024)
+    raid_exists = os.path.exists(sbxfilename+".raid") and cmdline.raid == True
 
-    #check magic and get version
-    header = fin.read(4)
+    if raid_exists:
+        fin_raid = open(sbxfilename+".raid", "rb", buffering=1024*1024)
+        fin_raid.seek(0,0)
     fin.seek(0, 0)
     
     sbxver = cmdline.sbxver
     sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
-    trimfilesize = False
     
     hashtype = 0
     hashlen = 0
@@ -322,14 +332,24 @@ def main():
     hashcheck = False
 
     #read in bytes
+
     buffer = fin.read(sbx.blocksize)
+    if raid_exists:
+        buffer_raid = fin_raid.read(sbx.blocksize)
     #set symbols for reed solomon
+
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
     #decode header with reed solomon
     try:
         buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
     except crs.ReedSolomonError:
-        print("Header not decodable")
+        #trying Raid copy
+        if raid_exists:
+            try:
+                print("BUFFF RAAAID")
+                buffer=bytes(rsc_for_header_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
+            except crs.ReedSolomonError:
+                print("Header not decodable")
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:
@@ -345,11 +365,6 @@ def main():
                 hashlen = metadata["hash"][1]
                 hashdigest = metadata["hash"][2:2+hashlen]
                 hashcheck = True
-        if "redundancy_level" in metadata:
-            redundancy_level = metadata["redundancy_level"]
-            sbx_redundancy = seqbox.SbxBlock(ver=sbxver, redundancy=redundancy_level)
-            sbx_redundancy.metadata = sbx.metadata
-            sbx = sbx_redundancy
     else:
         #first block is data, so reset from the start
         print("no metadata available")
@@ -422,13 +437,22 @@ def main():
         count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
 
     while True:
-
         buffer = fin.read(sbx.blocksize)
+        if raid_exists:
+            buffer_raid = fin_raid.read(sbx.blocksize)
         if len(buffer) < sbx.blocksize:
             break
         try:
             blocknumber+=1
-            buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+            try:
+                buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+            except crs.ReedSolomonError:
+                #trying Raid copy
+                if raid_exists:
+                    try:
+                        buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
+                    except crs.ReedSolomonError:
+                        print("rs Error")
 
             #LastBlock check
             if blocknumber == count_of_blocks+1:

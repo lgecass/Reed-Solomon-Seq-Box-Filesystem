@@ -32,6 +32,7 @@ import argparse
 import binascii
 from functools import partial
 from time import time as gettime
+import shutil
 
 try:
     import RS_SeqBox.seqbox as seqbox
@@ -63,6 +64,8 @@ def get_cmdline():
                         help="overwrite existing file")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
+    parser.add_argument("-raid", "--raid", action="store_true", default=False,
+                        help="Create duplicate sbx File for better recovery")
     parser.add_argument("-verbose", "--verbose", action="store_true", default=False, help="Show extended Information")
     res = parser.parse_args()
     return res
@@ -82,8 +85,7 @@ def getsha256(filename):
             d.update(buf)
     return d.digest()
 
-def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1):
-    
+def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=False):
     #filename to encode
     filename = filename
     
@@ -127,16 +129,15 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1):
                         "sbxdatetime":int(gettime()),
                         "hash":b'\x12\x20'+sha256,#multihash
                         "padding_last_block":0,} 
+    
     fout.write(sbx.encode())
     
     #write all other blocks
-
     updatetime = gettime() 
     time_list=[]
     while True:
         #Reads data from file 
         buffer = fin.read(sbx.raw_data_size_read_into_1_block)
-
         #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
             #if file ended and no more data to be read:
@@ -174,6 +175,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1):
         START_TIME = gettime()
 
         data = sbx.encode()
+        
         #calculate time 
         time_list.append(gettime() - START_TIME)
         #write to file
@@ -184,7 +186,10 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1):
             print("%.1f%%" % (fin.tell()*100.0/filesize), " ",
                   end="\r", flush=True)
             updatetime = gettime() + .1
-        
+    if raid:
+        print("Copying sbx file")
+        shutil.copy2(sbxfilename, sbxfilename+".raid")
+            
         
     time_taken = 0
     for time in time_list:
@@ -198,7 +203,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1):
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
-          (sbxfilesize, totblocks, overhead))   
+          (sbxfilesize, totblocks, overhead))
 
 def main():
     cmdline = get_cmdline()
@@ -302,7 +307,10 @@ def main():
             print("%.1f%%" % (fin.tell()*100.0/filesize), " ",
                   end="\r", flush=True)
             updatetime = gettime() + .1
-        
+    if cmdline.raid:
+        print("Copying sbx file")
+        shutil.copy2(sbxfilename, sbxfilename+".raid")
+            
         
     time_taken = 0
     for time in time_list:
