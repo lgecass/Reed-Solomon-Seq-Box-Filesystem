@@ -1,7 +1,7 @@
 import creedsolo.creedsolo as crs
 
-bytes_of_text= 2334
-redundancy=108
+bytes_of_text= 1000
+redundancy=200
 print("Redundancy Symbols used:",redundancy)
 
 text= b'A' * bytes_of_text

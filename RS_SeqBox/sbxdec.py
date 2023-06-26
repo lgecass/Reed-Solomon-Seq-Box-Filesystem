@@ -326,7 +326,10 @@ def main():
     #set symbols for reed solomon
     rsc_for_header_block = crs.RSCodec(sbx.redsym)
     #decode header with reed solomon
-    buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+    try:
+        buffer=bytes(rsc_for_header_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+    except crs.ReedSolomonError:
+        print("Header not decodable")
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:

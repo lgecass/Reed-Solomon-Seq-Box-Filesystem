@@ -600,7 +600,7 @@ class Operations(pyfuse3.Operations):
             #Check if after releasing file, changes to the file have been made
             #if not then it is not neccessary to recreate sbx file
             if not path_to_file.endswith(".sbx"):
-                if path_to_file.endswith(".trashinfo") or path_to_file.__contains__(".trashinfo"):
+                if path_to_file.__contains__(".trashinfo"):
                     return
                 if check_if_sbx_file_exists(path_to_file):
                     if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx",self.sbx_version):

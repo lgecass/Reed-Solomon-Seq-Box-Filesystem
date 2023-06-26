@@ -145,7 +145,6 @@ class SbxBlock():
             print("not an SBX block")
             #raise SbxDecodeError("not an SBX block")
         if not buffer[3] in supported_vers:
-           print(buffer[3])
            print("block not supported")
            #raise SbxDecodeError("block v%i not supported" % buffer[3])
         #check CRC of rest of the block
