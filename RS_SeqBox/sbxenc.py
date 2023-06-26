@@ -324,7 +324,8 @@ def main():
     sbxfilesize = totblocks * sbx.blocksize
     overhead = 100.0 * sbxfilesize / filesize - 100 if filesize > 0 else 0
     print("SBX file size: %i - blocks: %i - overhead: %.1f%%" %
-          (sbxfilesize, totblocks, overhead))       
+          (sbxfilesize, totblocks, overhead))
+
 
     
 

@@ -346,10 +346,9 @@ def main():
         #trying Raid copy
         if raid_exists:
             try:
-                print("BUFFF RAAAID")
                 buffer=bytes(rsc_for_header_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
             except crs.ReedSolomonError:
-                print("Header not decodable")
+                pass
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:
@@ -440,19 +439,20 @@ def main():
         buffer = fin.read(sbx.blocksize)
         if raid_exists:
             buffer_raid = fin_raid.read(sbx.blocksize)
+            
         if len(buffer) < sbx.blocksize:
             break
         try:
             blocknumber+=1
-            try:
-                buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
-            except crs.ReedSolomonError:
-                #trying Raid copy
-                if raid_exists:
-                    try:
-                        buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
-                    except crs.ReedSolomonError:
-                        print("rs Error")
+            if raid_exists:
+                try:
+                    buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+                except crs.ReedSolomonError:
+                    #trying Raid copy
+                    if raid_exists:
+                            buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
+            else:
+                    buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
 
             #LastBlock check
             if blocknumber == count_of_blocks+1:
