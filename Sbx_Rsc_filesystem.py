@@ -83,7 +83,7 @@ def get_hash_of_normal_file(path_to_file):
     return d.digest()
 
 #Checks integrity of any File  
-def get_hash_of_sbx_file(path_to_file, sbx_version):
+def get_hash_of_sbx_file(path_to_file, sbx_version, raid):
     print("Checking integrity of ", path_to_file)
     if not os.path.exists(path_to_file):
         print(1, "sbx file '%s' not found" % (path_to_file))
@@ -92,9 +92,24 @@ def get_hash_of_sbx_file(path_to_file, sbx_version):
     sbx = seqbox.SbxBlock(ver=sbx_version)
     fin = open(path_to_file, "rb", buffering=1024*1024)
     
+    raid_exists = os.path.exists(path_to_file+".raid") and raid == True
+    if raid_exists:
+        fin_raid = open(path_to_file+".raid", "rb", buffering=1024*1024)
+        fin_raid.seek(0,0)
+        buffer_raid = fin_raid.read(sbx.blocksize)
+        fin_raid.close()
+    
     buffer = fin.read(sbx.blocksize)
+    fin.close()
+    try:
+        buffer = bytes(decode_header_block_with_rsc(buffer, sbx_version))
+    except crs.ReedSolomonError:
+        if raid_exists:
+            try:
+                buffer=bytes(decode_header_block_with_rsc(buffer_raid,sbx_version))
+            except crs.ReedSolomonError:
+                pass
 
-    buffer = bytes(decode_header_block_with_rsc(buffer, sbx_version))
 
     header = buffer[:3]
 
@@ -139,38 +154,39 @@ def get_hash_of_sbx_file(path_to_file, sbx_version):
 
     
     #Creates shielded File in the mirror directory
-def create_shielded_version_of_file(path_to_file, sbx_version):
+def create_shielded_version_of_file(path_to_file, sbx_version, raid):
     #check if hash is equal
     sbx = seqbox.SbxBlock(ver=sbx_version)
 
     if path_to_file.endswith(".sbx"):
         if not os.path.exists(path_to_file.split(".sbx")[0]):
-            sbxdec.decode(path_to_file, sbx_ver=sbx.ver)
+            sbxdec.decode(path_to_file, sbx_ver=sbx.ver, raid=raid)
             active_sbx_encodings.remove(path_to_file)
             return
 
-        if get_hash_of_sbx_file(path_to_file, sbx_ver=sbx_version) == get_hash_of_normal_file(path_to_file.split(".sbx")[0]):
+        if get_hash_of_sbx_file(path_to_file, sbx_ver=sbx_version, raid=raid) == get_hash_of_normal_file(path_to_file.split(".sbx")[0]):
             print("Hash of Files dont match")
-            sbxdec.decode(path_to_file,sbx_ver=sbx.ver)
+            sbxdec.decode(path_to_file,sbx_ver=sbx.ver, raid=raid)
             active_sbx_encodings.remove(path_to_file)
             return
         else:
             return
     print("Creating shielded version of File")
-    sbxenc.encode(path_to_file,sbxfilename=path_to_file+".sbx", sbx_ver=sbx.ver)    
+    sbxenc.encode(path_to_file,sbxfilename=path_to_file+".sbx", sbx_ver=sbx.ver, raid=raid)    
     print("file encoded")
     active_sbx_encodings.remove(path_to_file)
 
 
-def unshield_file(path_to_file, sbx_version):
+def unshield_file(path_to_file, sbx_version, raid):
     print("Unshielding file")
-    sbxdec.decode(path_to_file+".sbx", overwrite=True, sbx_ver=sbx_version)
+    sbxdec.decode(path_to_file+".sbx", overwrite=True, sbx_ver=sbx_version, raid=raid)
 
 class Operations(pyfuse3.Operations):
 
     enable_writeback_cache = True
 
-    def __init__(self, source, sbx_version):
+    def __init__(self, source, sbx_version,raid):
+        self.raid = raid
         super().__init__()
         self.sbx_version = sbx_version
         self.shield_dir=source
@@ -535,7 +551,7 @@ class Operations(pyfuse3.Operations):
                         print("Hashes dont match")
                         if os.path.exists(file_path+".sbx"):
                             if os.lstat(file_path+".sbx").st_size > 0:
-                                unshield_file(file_path, self.sbx_version)
+                                unshield_file(file_path, self.sbx_version, self.raid)
                                 fd = os.open(file_path, flags)
                         else:
                             print("File does not exist because it is being renamed")
@@ -607,7 +623,7 @@ class Operations(pyfuse3.Operations):
                         if not active_sbx_encodings.__contains__(path_to_file):
                             print("HASHES DONT MATCH")
                             active_sbx_encodings.append(path_to_file)
-                            create_shielded_version_of_file(path_to_file, self.sbx_version)
+                            create_shielded_version_of_file(path_to_file, self.sbx_version, self.raid)
                             
                         else:
                             print("File is already being processed")
@@ -653,6 +669,8 @@ def parse_args(args):
                         help='Enable FUSE debugging output')
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
+    parser.add_argument("-raid", "--raid", action="store_true", default=False,
+                        help="Take .raid files into consideration in encoding/decoding")
     return parser.parse_args(args)
 
 def main():
@@ -668,7 +686,7 @@ def main():
     init_logging(options.debug)
     
     
-    operations = Operations(options.source, options.sbxver)
+    operations = Operations(options.source, options.sbxver, options.raid)
 
     log.debug('Mounting...')
 
