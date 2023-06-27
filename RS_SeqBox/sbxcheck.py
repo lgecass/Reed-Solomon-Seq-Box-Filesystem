@@ -124,6 +124,8 @@ def get_cmdline():
                         help="Check recursively through folders")
     parser.add_argument("-o", "--overwrite", action="store_true", default=False,
                         help="overwrite existing file")
+    parser.add_argument("-raid", "--raid", action="store_true", default=False,
+                        help="use existing raid files for recovery")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
     res = parser.parse_args()
@@ -137,7 +139,7 @@ def get_hash_of_normal_file(path_to_file):
             d.update(buf)
     return d.digest()
 
-def check_whole_directory(path_to_directory, sbx_ver, recursively = False):
+def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False):
     if not os.path.exists(path_to_directory) or not os.path.isdir(path_to_directory):
         print("directory does not exist or is not a directory")
         return
@@ -182,7 +184,7 @@ def check_whole_directory(path_to_directory, sbx_ver, recursively = False):
     
     if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
         for file in files_needing_repair:
-            sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True)
+            sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid)
     
 
 
@@ -196,9 +198,10 @@ def main():
     if cmdline.folder == None:
         return print("Folder argument is necessary")
     if not cmdline.recursive:
-        check_whole_directory(cmdline.folder,cmdline.sbxver)
+        
+        check_whole_directory(cmdline.folder,cmdline.sbxver,raid=cmdline.raid)
     else:
-        check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive)
+        check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive,raid=cmdline.raid)
 
 if __name__ == '__main__':
     main()

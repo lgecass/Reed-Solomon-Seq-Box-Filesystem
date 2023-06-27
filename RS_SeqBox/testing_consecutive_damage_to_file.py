@@ -11,15 +11,19 @@ class SbxDecodeError(SbxError):
     pass
 
 #Variables you can change
-run_count=1
-data_size_in_bytes = 3145728
-sbx_version = 2
+run_count=100
+data_size_in_bytes = 3000000
+sbx_version = 1
+raid = True
+count_of_bytes_tampered_at_start = 300000
+until_how_much_bytes_of_file_to_test = 300001
 #until here
 
 
 results = []
 print(results)
-for k in range(1,int(data_size_in_bytes*0.0001)):    
+for k in range(count_of_bytes_tampered_at_start,until_how_much_bytes_of_file_to_test):
+    print(k," bytes to be Damaged")    
     counts_of_failure = 0
     file_to_create = "test_file_consecutive.txt"
     print("File ", file_to_create , " created")
@@ -28,7 +32,7 @@ for k in range(1,int(data_size_in_bytes*0.0001)):
     print("File filled with ",data_size_in_bytes ," bytes")
     f.close()
       
-    Encoder.encode(file_to_create, sbx_ver= sbx_version)
+    Encoder.encode(file_to_create, sbx_ver= sbx_version, raid=raid)
     encoded_file = file_to_create+".sbx"
     file_size = os.stat(encoded_file).st_size        
     print("File is", file_size, "bytes big")
@@ -40,35 +44,55 @@ for k in range(1,int(data_size_in_bytes*0.0001)):
 
     maximal_bytes_to_change = data_size_in_bytes
     for j in range(0,run_count):
+        
         count_of_bytes_to_be_tampered = k
+        
         file_sbx_encoded_copy = file_sbx_encoded.copy()
+        if raid:
+            file_sbx_encoded_copy_raid = file_sbx_encoded.copy()
         #position where consecutive bytes are exchanged
         position_to_tamper = random.randint(0,file_size-count_of_bytes_to_be_tampered)
+        if raid:
+            position_to_tamper_raid = random.randint(0,file_size-count_of_bytes_to_be_tampered)
 
 
         for i in range(0,count_of_bytes_to_be_tampered):
             file_sbx_encoded_copy[position_to_tamper+i] = 11
+        if raid:
+            for i in range(0,count_of_bytes_to_be_tampered):
+                file_sbx_encoded_copy_raid[position_to_tamper_raid+i] = 11
 
 
 
-        tampered_file_name = "tampered_file_consecutive.txt.sbx"
+       
 
-        f = open(tampered_file_name,"wb")
+        f = open(encoded_file,"wb")
         f.write(file_sbx_encoded_copy)
         f.close()
+        if raid:
+            f = open(encoded_file+".raid","wb")
+            f.write(file_sbx_encoded_copy_raid)
+            f.close()
         try:
-            Decoder.decode(tampered_file_name,filename="save_consecutive.txt",overwrite=True,sbx_ver=sbx_version)
+            Decoder.decode(encoded_file,filename="save_consecutive.txt",overwrite=True,sbx_ver=sbx_version, raid=raid)
         except crs.ReedSolomonError:
             counts_of_failure+=1
         except SbxDecodeError:
             counts_of_failure+=1
 
     results.append(counts_of_failure)
-os.remove(tampered_file_name)
-os.remove(file_to_create)
-os.remove(encoded_file)
 
-os.remove("save_consecutive.txt")
+if os.path.exists("save_consecutive.txt"):
+    os.remove("save_consecutive.txt")
+if os.path.exists("test_file_consecutive.txt.sbx"):
+    os.remove("test_file_consecutive.txt.sbx")
+if os.path.exists("test_file_consecutive.txt.sbx.raid"):
+    os.remove("test_file_consecutive.txt.sbx.raid")
+if os.path.exists(file_to_create):
+    os.remove(file_to_create)
+if os.path.exists(file_to_create):
+    os.remove(encoded_file)
+
 print(results)
 
 

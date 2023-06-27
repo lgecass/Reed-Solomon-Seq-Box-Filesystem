@@ -11,17 +11,19 @@ class SbxDecodeError(SbxError):
     pass
 
 #Variables you can change
-run_count=1
-data_size_in_bytes = 41943
+run_count=10
+data_size_in_bytes = 3000000
 sbx_version = 1
-raid = False
+raid = True
+start_procent_of_tampering = 12
+end_procent_of_tampering = 13
 #till here
 
-#procent_of_tampering = [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.17,0.18,0.19,0.20,0.21,0.22,0.23,0.24,0.26,0.27,0.28,0.29,0.30,0.31,0.32,0.33,0.34,0.35,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,0.32,]
 procent_of_tampering = []
-for i in range(0,200):
+
+for i in range(start_procent_of_tampering,end_procent_of_tampering):
     procent_of_tampering.append(float(0.00+i/100))
-print(procent_of_tampering)
+
 results = [0] * len(procent_of_tampering)
 print(results)
 for k in range(0,len(procent_of_tampering)):
