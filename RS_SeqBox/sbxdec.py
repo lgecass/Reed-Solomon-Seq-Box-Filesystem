@@ -89,8 +89,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     print("decoding '%s'..." % (sbxfilename))
     fin = open(sbxfilename, "rb", buffering=1024*1024)
     raid_exists = os.path.exists(sbxfilename+".raid") and raid == True
-    print(raid_exists)
-
+    
     if raid_exists:
         fin_raid = open(sbxfilename+".raid", "rb", buffering=1024*1024)
         fin_raid.seek(0,0)
@@ -142,7 +141,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         #first block is data, so reset from the start
         print("no metadata available")
         fin.seek(0, 0)
-        if raid:
+        if raid_exists:
             fin_raid.seek(0, 0)
 
     #display some info and stop
@@ -263,7 +262,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
                   end="\r", flush=True)
             updatetime = time.time() + .1
-    if raid:
+    if raid_exists:
         fin_raid.close()
     fin.close()
     if not test:
@@ -305,7 +304,6 @@ def decode_whole_directory(path_to_directory):
         decode(sbxfile,sbxfile[:-4],info=False,test=False,cont=False, overwrite=True)
                      
 def main():
-    
     cmdline = get_cmdline()
     sbxfilename = cmdline.sbxfilename
     filename = cmdline.filename
@@ -372,7 +370,7 @@ def main():
         #first block is data, so reset from the start
         print("no metadata available")
         fin.seek(0, 0)
-        if cmdline.raid:
+        if raid_exists:
             fin_raid.seek(0,0)
 
     #display some info and stop
