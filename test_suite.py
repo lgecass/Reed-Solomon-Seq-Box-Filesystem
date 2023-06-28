@@ -173,7 +173,9 @@ def cleanup():
     
     if os.path.exists("./testfolder/test_file.txt.sbx"):
         os.remove("./testfolder/test_file.txt.sbx")
+    
     if os.path.exists("./testfolder/test_file.txt.sbx.raid"):
         os.remove("./testfolder/test_file.txt.sbx.raid")
+    
     if os.path.exists("testfolder"):
         os.removedirs("testfolder")
