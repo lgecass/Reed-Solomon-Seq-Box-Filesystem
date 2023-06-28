@@ -213,8 +213,6 @@ class Operations(pyfuse3.Operations):
         return val
 
     def _add_path(self, inode, path):
-        print("add_path")
-
         log.debug('_add_path for %d, %s', inode, path)
         self._lookup_cnt[inode] += 1
 
@@ -230,7 +228,6 @@ class Operations(pyfuse3.Operations):
             self._inode_path_map[inode] = { path, val }
 
     async def forget(self, inode_list):
-        print("forget")
         for (inode, nlookup) in inode_list:
             if self._lookup_cnt[inode] > nlookup:
                 self._lookup_cnt[inode] -= nlookup
@@ -244,7 +241,6 @@ class Operations(pyfuse3.Operations):
                 pass
 
     async def lookup(self, inode_p, name, ctx=None):
-        print("lookup")
         name = fsdecode(name)
         log.debug('lookup for %s in %d', name, inode_p)
         path = os.path.join(self._inode_to_path(inode_p), name)
@@ -254,7 +250,6 @@ class Operations(pyfuse3.Operations):
         return attr
 
     async def getattr(self, inode, ctx=None):
-        print("getattr")
         if inode in self._inode_fd_map:
             return self._getattr(fd=self._inode_fd_map[inode])
         else:
@@ -285,7 +280,6 @@ class Operations(pyfuse3.Operations):
         return entry
 
     async def readlink(self, inode, ctx):
-        print("readlink")
         path = self._inode_to_path(inode)
         try:
             target = os.readlink(path)
@@ -297,7 +291,6 @@ class Operations(pyfuse3.Operations):
         return inode
 
     async def readdir(self, inode, off, token):
-        print("readdir")
         path = self._inode_to_path(inode)
         log.debug('reading %s', path)
         entries = []
@@ -326,7 +319,6 @@ class Operations(pyfuse3.Operations):
             self._add_path(attr.st_ino, os.path.join(path, name))
 
     async def unlink(self, inode_p, name, ctx):
-        print("UNLINK")
         name = fsdecode(name)
         parent = self._inode_to_path(inode_p)
         path = os.path.join(parent, name)
@@ -340,7 +332,6 @@ class Operations(pyfuse3.Operations):
             self._forget_path(inode, path)
 
     async def rmdir(self, inode_p, name, ctx):
-        print("RMDIR")
         name = fsdecode(name)
         parent = self._inode_to_path(inode_p)
         path = os.path.join(parent, name)
@@ -354,7 +345,6 @@ class Operations(pyfuse3.Operations):
             self._forget_path(inode, path)
 
     def _forget_path(self, inode, path):
-        print("forget path")
         log.debug('forget %s for %d', path, inode)
         val = self._inode_path_map[inode]
         if isinstance(val, set):
@@ -382,9 +372,6 @@ class Operations(pyfuse3.Operations):
 
     async def rename(self, inode_p_old, name_old, inode_p_new, name_new,
                      flags, ctx):
-            print("renaming")
-            print("nameold",name_old)
-            print("namenew",name_new)
             if flags != 0:
                 raise FUSEError(errno.EINVAL)
 
@@ -414,7 +401,6 @@ class Operations(pyfuse3.Operations):
                 self._inode_path_map[inode] = path_new
 
     async def link(self, inode, new_inode_p, new_name, ctx):
-        print("link")
         new_name = fsdecode(new_name)
         parent = self._inode_to_path(new_inode_p)
         path = os.path.join(parent, new_name)
@@ -427,7 +413,6 @@ class Operations(pyfuse3.Operations):
         return await self.getattr(inode)
 
     async def setattr(self, inode, attr, fields, fh, ctx):
-        print("SETATTR")
         # We use the f* functions if possible so that we can handle
         # a setattr() call for an inode without associated directory
         # handle.
@@ -489,7 +474,6 @@ class Operations(pyfuse3.Operations):
         return await self.getattr(inode)
 
     async def mknod(self, inode_p, name, mode, rdev, ctx):
-        print("MKNOD")
         path = os.path.join(self._inode_to_path(inode_p), fsdecode(name))
         try:
             os.mknod(path, mode=(mode & ~ctx.umask), device=rdev)
@@ -501,7 +485,6 @@ class Operations(pyfuse3.Operations):
         return attr
 
     async def mkdir(self, inode_p, name, mode, ctx):
-        print("MKDIR")
         path = os.path.join(self._inode_to_path(inode_p), fsdecode(name))
         try:
             os.mkdir(path, mode=(mode & ~ctx.umask))
@@ -526,7 +509,6 @@ class Operations(pyfuse3.Operations):
         return stat_
 
     async def open(self, inode, flags, ctx):
-        print("open")
         #Before file is being read it is first opened
         #check Integrity of file here
         if inode in self._inode_fd_map:
@@ -561,7 +543,6 @@ class Operations(pyfuse3.Operations):
                     fd = os.open(file_path, flags)
         except OSError as exc:
             raise FUSEError(exc.errno)
-        print("FP",file_path)
         self._inode_fd_map[inode] = fd
         self._fd_inode_map[fd] = inode
         self._fd_open_count[fd] = 1
@@ -570,7 +551,6 @@ class Operations(pyfuse3.Operations):
     async def create(self, inode_p, name, mode, flags, ctx):
         #after creating a file, the mirrored version should be shielded
         #--
-        print("CREATEE")
         path = os.path.join(self._inode_to_path(inode_p), fsdecode(name))
         try:
             fd = os.open(path, flags | os.O_CREAT | os.O_TRUNC)
@@ -585,21 +565,18 @@ class Operations(pyfuse3.Operations):
         return (pyfuse3.FileInfo(fh=fd), attr)
     #normal
     async def read(self, fd, offset, length):
-        print("READ")
         #check integrity before reading
         #--
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
     #normal
     async def write(self, fd, offset, buf):
-        print("WRITE")
         #check integrity before writing
         #--
         os.lseek(fd, offset, os.SEEK_SET) 
         return os.write(fd, buf)
 
     async def release(self, fd):
-        print("Release")
         if self._fd_open_count[fd] > 1:
             self._fd_open_count[fd] -= 1
             return
