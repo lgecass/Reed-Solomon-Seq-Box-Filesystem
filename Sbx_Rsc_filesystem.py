@@ -150,9 +150,6 @@ def get_hash_of_sbx_file(path_to_file, sbx_version, raid):
             return hash_of_sbx_file_decoded
     else:
         return ""
-    
-
-    
     #Creates shielded File in the mirror directory
 def create_shielded_version_of_file(path_to_file, sbx_version, raid):
     #check if hash is equal

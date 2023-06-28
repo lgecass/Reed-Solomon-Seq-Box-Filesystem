@@ -126,6 +126,8 @@ def get_cmdline():
                         help="overwrite existing file")
     parser.add_argument("-raid", "--raid", action="store_true", default=False,
                         help="use existing raid files for recovery")
+    parser.add_argument("-auto", "--auto", action="store_true", default=False,
+                        help="Automatically repair without asking")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
     res = parser.parse_args()
@@ -139,7 +141,7 @@ def get_hash_of_normal_file(path_to_file):
             d.update(buf)
     return d.digest()
 
-def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False):
+def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False, auto=False):
     if not os.path.exists(path_to_directory) or not os.path.isdir(path_to_directory):
         print("directory does not exist or is not a directory")
         return
@@ -177,18 +179,17 @@ def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid 
     
     if len(files_needing_repair) == 0:
         return print("All Files are correct, no need to repair")
-    
-    print("These files need repair: ", files_needing_repair,"\n")
-    print("Should they be repaired now ? Y - yes | N - No")
-    input_from_user = input()
-    
-    if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
+    if not auto:
+        print("These files need repair: ", files_needing_repair,"\n")
+        print("Should they be repaired now ? Y - yes | N - No")
+        input_from_user = input()
+        
+        if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
+            for file in files_needing_repair:
+                sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid)
+    else:
         for file in files_needing_repair:
-            sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid)
-    
-
-
-
+                sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid)   
 
 def main():
     supported_sbx_versions = [1,2]
@@ -199,9 +200,21 @@ def main():
         return print("Folder argument is necessary")
     if not cmdline.recursive:
         
-        check_whole_directory(cmdline.folder,cmdline.sbxver,raid=cmdline.raid)
+        check_whole_directory(cmdline.folder,cmdline.sbxver,raid=cmdline.raid, auto=cmdline.auto)
     else:
-        check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive,raid=cmdline.raid)
+        check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive,raid=cmdline.raid,auto=cmdline.auto)
+    
+def check(directory,sbxver=1,recursive=False,raid=False, auto=False ):
+    supported_sbx_versions = [1,2]
+    cmdline = get_cmdline()
+    if not supported_sbx_versions.__contains__(sbxver):
+        return print("sbx version not supported")
+    if directory == None:
+        return print("Folder argument is necessary")
+    if not recursive:
+        check_whole_directory(directory,sbxver,raid=raid, auto=auto)
+    else:
+        check_whole_directory(directory,sbxver, recursive,raid=raid,auto=auto)
 
 if __name__ == '__main__':
     main()
