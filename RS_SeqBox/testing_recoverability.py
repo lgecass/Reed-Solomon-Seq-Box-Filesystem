@@ -12,7 +12,7 @@ class SbxDecodeError(SbxError):
 
 #Variables you can change
 run_count=10
-data_size_in_bytes = 3000000
+data_size_in_bytes = 3000
 sbx_version = 1
 raid = True
 start_procent_of_tampering = 12
@@ -82,24 +82,27 @@ for k in range(0,len(procent_of_tampering)):
             f_raid = open(tampered_file_name+".raid","wb")
             f_raid.write(file_sbx_encoded_copy)
             f_raid.close()
-        
-        
-       
         try:
             Decoder.decode(tampered_file_name,filename="save.txt",overwrite=True,sbx_ver=sbx_version,raid=raid)
         except crs.ReedSolomonError:
             print("ERROR REED SOLOMON")
             counts_of_failure+=1
-            
         except SbxDecodeError:
             print("ERROR SBX DECODE")
             counts_of_failure+=1
+
     results[k] = counts_of_failure
-#os.remove(tampered_file_name)
-os.remove(file_to_create)
-os.remove(encoded_file)
+
+if os.path.exists(file_to_create):
+    os.remove(file_to_create)
+if os.path.exists(encoded_file):
+    os.remove(encoded_file)
+if os.path.exists("save.txt"):
+    os.remove("save.txt")
+if os.path.exists(encoded_file+".raid"):
+    os.remove(encoded_file+".raid")
 print(results)
-os.remove("save.txt")
+
 
 
 

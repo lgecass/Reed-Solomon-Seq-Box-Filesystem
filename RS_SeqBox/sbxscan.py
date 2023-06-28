@@ -34,10 +34,10 @@ import seqbox
 from collections.abc import Sequence, Mapping
 PROGRAM_VER = "1.0.1"
 
-def decode_data_block(buffer):
-    redundancy=108
+def decode_data_block(buffer, sbx):
+    redundancy=sbx.redsym 
     rsc=crs.RSCodec(redundancy)
-    buffer = bytes(rsc.decode(bytearray(buffer[:-2]))[0])   
+    buffer = bytes(rsc.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])   
     return buffer 
 
 
@@ -150,7 +150,7 @@ def main():
             buffer = fin.read(sbx.blocksize)
             try:
                 #decode with reed solomon
-                buffer = decode_data_block(buffer)
+                buffer = decode_data_block(buffer, sbx)
             except crs.ReedSolomonError:
                 #not a sbx block or too many errors
                 pass

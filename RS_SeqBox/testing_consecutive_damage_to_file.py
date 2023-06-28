@@ -12,11 +12,11 @@ class SbxDecodeError(SbxError):
 
 #Variables you can change
 run_count=100
-data_size_in_bytes = 3000000
+data_size_in_bytes = 3000
 sbx_version = 1
 raid = True
-count_of_bytes_tampered_at_start = 300000
-until_how_much_bytes_of_file_to_test = 300001
+count_of_bytes_tampered_at_start = 2000
+until_how_much_bytes_of_file_to_test = 2001
 #until here
 
 
@@ -38,7 +38,6 @@ for k in range(count_of_bytes_tampered_at_start,until_how_much_bytes_of_file_to_
     print("File is", file_size, "bytes big")
 
     f = open(encoded_file, "rb")
-
     file_sbx_encoded= bytearray(f.read())
     f.close()
 
@@ -50,6 +49,7 @@ for k in range(count_of_bytes_tampered_at_start,until_how_much_bytes_of_file_to_
         file_sbx_encoded_copy = file_sbx_encoded.copy()
         if raid:
             file_sbx_encoded_copy_raid = file_sbx_encoded.copy()
+       
         #position where consecutive bytes are exchanged
         position_to_tamper = random.randint(0,file_size-count_of_bytes_to_be_tampered)
         if raid:
@@ -61,10 +61,6 @@ for k in range(count_of_bytes_tampered_at_start,until_how_much_bytes_of_file_to_
         if raid:
             for i in range(0,count_of_bytes_to_be_tampered):
                 file_sbx_encoded_copy_raid[position_to_tamper_raid+i] = 11
-
-
-
-       
 
         f = open(encoded_file,"wb")
         f.write(file_sbx_encoded_copy)
@@ -90,7 +86,7 @@ if os.path.exists("test_file_consecutive.txt.sbx.raid"):
     os.remove("test_file_consecutive.txt.sbx.raid")
 if os.path.exists(file_to_create):
     os.remove(file_to_create)
-if os.path.exists(file_to_create):
+if os.path.exists(encoded_file):
     os.remove(encoded_file)
 
 print(results)

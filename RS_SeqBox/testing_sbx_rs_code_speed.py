@@ -3,9 +3,9 @@ import sbxdec as Decoder
 from time import time as gettime
 import os
 
-file_size_to_encode = 1000000000# bytes
+file_size_to_encode = 1000# bytes
 repetitions = 1
-sbxversion = 2
+sbxversion = 1
 raid = True
 filename = "file_to_test.txt"
 
@@ -55,8 +55,12 @@ if repetitions != 0:
 print("Average Time Encoding for ",file_size_to_encode, "bytes: ", average_time_encoding)
 print("Average Time Decoding for ",str(os.lstat(filename+".sbx").st_size), "bytes: ", average_time_decoding)
 
-os.remove(filename)
-os.remove(filename+".sbx")
+if os.path.exists(filename):
+      os.remove(filename)
+if os.path.exists(filename+".sbx"):
+      os.remove(filename+".sbx")
+if os.path.exists(filename+".sbx.raid"):
+      os.remove(filename+".sbx.raid")
        
 
 
