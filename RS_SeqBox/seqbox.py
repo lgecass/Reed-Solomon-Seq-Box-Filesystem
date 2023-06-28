@@ -136,7 +136,7 @@ class SbxBlock():
                 self.padding_last_block = len_after_padding -len_before_padding   
         return block
 
-    def decode(self, buffer, continue_decoding=False):
+    def decode(self, buffer):
         #start setting an invalid block number
         self.blocknum = -1
         #decode eventual password
