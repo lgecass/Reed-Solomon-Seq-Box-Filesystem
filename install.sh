@@ -1,7 +1,9 @@
 #!/bin/bash
 sudo apt update -y
 sudo apt install meson ninja-build
-pip install -r requirements.txt
+pip install reedsolo == 1.7.0 
+pip install meson == 1.0.1
+pip install pytest == 7.2.1 
 
 git clone https://github.com/libfuse/libfuse.git
 cd libfuse

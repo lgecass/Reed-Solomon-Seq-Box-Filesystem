@@ -74,7 +74,6 @@ class SbxBlock():
         self.magic = b'SBx' + bytes([ver])
         self.blocknum = 0
 
-
         if uid == "r":
             random.seed()
             self.uid = random.getrandbits(6*8).to_bytes(6, byteorder='big')
@@ -142,17 +141,12 @@ class SbxBlock():
     def decode(self, buffer):
         #start setting an invalid block number
         self.blocknum = -1
-        #decode eventual password
+
         #check the basics
         if buffer[:3] != self.magic[:3]:
             print("not an SBX block")
-            #raise SbxDecodeError("not an SBX block")
         if not buffer[3] in supported_vers:
-           print("block not supported")
-           #raise SbxDecodeError("block v%i not supported" % buffer[3])
-        #check CRC of rest of the block
-        
-        
+           print("block not supported")     
 
         self.uid = buffer[6:12]
         self.blocknum = int.from_bytes(buffer[12:16], byteorder='big')
