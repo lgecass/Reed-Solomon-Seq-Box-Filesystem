@@ -128,6 +128,8 @@ def get_cmdline():
                         help="overwrite existing file")
     parser.add_argument("-raid", "--raid", action="store_true", default=False,
                         help="use existing raid files for recovery")
+    parser.add_argument("-auto", "--auto", action="store_true", default=False,
+                        help="Automatically repair without asking")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
     parser.add_argument("-p", "--password", type=str, default="",
@@ -181,12 +183,15 @@ def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid 
     
     if len(files_needing_repair) == 0:
         return print("All Files are correct, no need to repair")
-    
-    print("These files need repair: ", files_needing_repair,"\n")
-    print("Should they be repaired now ? Y - yes | N - No")
-    input_from_user = input()
-    
-    if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
+    if not auto:
+        print("These files need repair: ", files_needing_repair,"\n")
+        print("Should they be repaired now ? Y - yes | N - No")
+        input_from_user = input()
+        
+        if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
+            for file in files_needing_repair:
+                sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid)
+    else:
         for file in files_needing_repair:
             sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid,password=password)
     

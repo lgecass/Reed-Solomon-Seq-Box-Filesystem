@@ -148,9 +148,6 @@ def get_hash_of_sbx_file(path_to_file, sbx_version, raid):
             return hash_of_sbx_file_decoded
     else:
         return ""
-    
-
-    
     #Creates shielded File in the mirror directory
 def create_shielded_version_of_file(path_to_file, sbx_version, raid):
     #check if hash is equal
@@ -524,7 +521,7 @@ class Operations(pyfuse3.Operations):
             else:
                 if not file_path.endswith(".sbx"):
                     print("active",active_sbx_encodings)
-                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx", sbx_version=self.sbx_version, raid= self.raid)):
+                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx", sbx_version=self.sbx_version, raid=self.raid)):
                         print("Hashes Match or file being deleted")
                         fd = os.open(file_path, flags)
                     else:
@@ -594,7 +591,7 @@ class Operations(pyfuse3.Operations):
                 if path_to_file.__contains__(".trashinfo"):
                     return
                 if check_if_sbx_file_exists(path_to_file):
-                    if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx",self.sbx_version):
+                    if get_hash_of_normal_file(path_to_file) != get_hash_of_sbx_file(path_to_file+".sbx",self.sbx_version, raid=self.raid):
                         if not active_sbx_encodings.__contains__(path_to_file):
                             print("HASHES DONT MATCH")
                             active_sbx_encodings.append(path_to_file)
@@ -608,7 +605,7 @@ class Operations(pyfuse3.Operations):
                     print("Threading")
                     if not active_sbx_encodings.__contains__(path_to_file):
                         active_sbx_encodings.append(path_to_file)
-                        create_shielded_version_of_file(path_to_file,self.sbx_version)
+                        create_shielded_version_of_file(path_to_file,self.sbx_version, raid=self.raid)
                         
         
         except OSError as exc:

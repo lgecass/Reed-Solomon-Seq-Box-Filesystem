@@ -43,7 +43,7 @@ def create_fragmented_files(directory, num_files, max_file_size,num_thread):
         file.close()
 
 # Specify the directory where the files will be created
-directory = "/path/to/directory/where/files/should/be/created"
+directory = "/home/luge/Desktop/working_dir/"
 if not os.path.exists(directory):
         os.makedirs(directory)
 # Specify the number of files to create

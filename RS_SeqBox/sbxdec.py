@@ -58,8 +58,6 @@ def get_cmdline():
                         help="test container integrity")
     parser.add_argument("-i", "--info", action="store_true", default=False,
                         help="show informations/metadata")
-    parser.add_argument("-c", "--continue", action="store_true", default=False,
-                        help="continue on block errors", dest="cont")
     parser.add_argument("-o", "--overwrite", action="store_true", default=False,
                         help="overwrite existing file")
     parser.add_argument("-raid", "--raid", action="store_true", default=False,

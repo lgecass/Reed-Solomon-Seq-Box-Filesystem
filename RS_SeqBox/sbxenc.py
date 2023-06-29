@@ -191,11 +191,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=F
                   end="\r", flush=True)
             updatetime = gettime() + .1
     if raid:
-        print("Copying sbx file")
-        START_TIME_copy = gettime()
         shutil.copy2(sbxfilename, sbxfilename+".raid")
-        time = gettime() - START_TIME    
-        print("TIME",time)
         
     time_taken = 0
     for time in time_list:
