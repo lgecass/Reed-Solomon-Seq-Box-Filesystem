@@ -89,10 +89,9 @@ def getsha256(filename):
             d.update(buf)
     return d.digest()
 
-def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=False):
+def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=False, password=""):
     #filename to encode
     filename = filename
-    
     #filename which results from encoding
     sbxfilename = sbxfilename
 
@@ -123,7 +122,7 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=F
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=uid, ver=sbx_ver)
+    sbx = seqbox.SbxBlock(uid=uid, ver=sbx_ver, pswd=password)
 
     #write metadata block 0
     sbx.metadata = {"filesize":filesize,
@@ -138,10 +137,15 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=F
     
     #write all other blocks
     updatetime = gettime() 
-    time_list=[]
+    
+    if password:
+        encdec = seqbox.EncDec(password, sbx.raw_data_size_read_into_1_block)
+
     while True:
         #Reads data from file 
         buffer = fin.read(sbx.raw_data_size_read_into_1_block)
+        
+        
         #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
             #if file ended and no more data to be read:
@@ -172,16 +176,14 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=F
                 #fill buffer up with padding
                 buffer += b'\x1A'* ((sbx.datasize-sbx.redsize) - len(buffer))
 
-           
+        if password:
+            buffer = encdec.xor(buffer)   
+
         sbx.blocknum += 1
         sbx.data = buffer
-        #measure time  
-        START_TIME = gettime()
 
         data = sbx.encode()
-        
-        #calculate time 
-        time_list.append(gettime() - START_TIME)
+       
         #write to file
         fout.write(data)
         
@@ -191,12 +193,9 @@ def encode(filename,sbxfilename=None,overwrite="False",uid="r",sbx_ver=1, raid=F
                   end="\r", flush=True)
             updatetime = gettime() + .1
     if raid:
+        print("Copying sbx file")
         shutil.copy2(sbxfilename, sbxfilename+".raid")
-        
-    time_taken = 0
-    for time in time_list:
-        time_taken += time
-    print("total time for Encoding: ", str(time_taken)+ " s")
+
     print("100%  ")
     fin.close()
     fout.close()

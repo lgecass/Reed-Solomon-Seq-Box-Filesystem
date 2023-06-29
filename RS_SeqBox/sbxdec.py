@@ -79,6 +79,7 @@ def errexit(errlev=1, mess=""):
 def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test=False,cont=False,sbx_ver=1, raid=False):
     sbxfilename = sbxfilename
     filename = filename
+
     if os.path.isdir(sbxfilename):
         decode_whole_directory(sbxfilename)
         return
@@ -90,13 +91,13 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
     print("decoding '%s'..." % (sbxfilename))
     fin = open(sbxfilename, "rb", buffering=1024*1024)
     raid_exists = os.path.exists(sbxfilename+".raid") and raid == True
-    
+
     if raid_exists:
         fin_raid = open(sbxfilename+".raid", "rb", buffering=1024*1024)
         fin_raid.seek(0,0)
     fin.seek(0, 0)
     
-    sbxver = sbx_ver
+    sbxver = sbxver
     sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
     
@@ -123,6 +124,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                 buffer=bytes(rsc_for_header_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
             except crs.ReedSolomonError:
                 pass
+
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:
@@ -143,7 +145,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         print("no metadata available")
         fin.seek(0, 0)
         if raid_exists:
-            fin_raid.seek(0, 0)
+            fin_raid.seek(0,0)
 
     #display some info and stop
     if info:
@@ -210,7 +212,9 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         count_of_blocks = metadata["filesize"] / sbx.raw_data_size_read_into_1_block
     else:
         count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
-
+    
+    if password:
+        encdec = seqbox.EncDec(password, sbx.raw_data_size_read_into_1_block)
     while True:
         buffer = fin.read(sbx.blocksize)
         if raid_exists:
@@ -234,7 +238,9 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             if blocknumber == count_of_blocks+1:
                 #cut padding
                 buffer = buffer[:-metadata["padding_last_block"]]
-                
+            #Decode with password if necessary
+            if password:
+                buffer = encdec.xor(buffer)     
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
                 if cont:
@@ -263,9 +269,10 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
             print("  %.1f%%" % (fin.tell()*100.0/sbxfilesize),
                   end="\r", flush=True)
             updatetime = time.time() + .1
-    if raid_exists:
-        fin_raid.close()
+
     fin.close()
+    if raid: 
+        fin_raid.close()
     if not test:
         fout.close()
         if metadata:
@@ -284,7 +291,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         if d.digest() == hashdigest:
             print("hash match!")
         else:
-            errexit(1, "hash mismatch! decoded file corrupted!")    
+            errexit(1, "hash mismatch! decoded file corrupted!")
 
 def decode_whole_directory(path_to_directory):
     sbx_files = []
