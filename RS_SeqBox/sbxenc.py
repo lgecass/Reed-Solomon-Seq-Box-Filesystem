@@ -1,29 +1,31 @@
 #!/usr/bin/env python3
 
-#--------------------------------------------------------------------------
-# SBXEnc - Sequenced Box container Encoder - Extended by Lukas Gecas
+#----------------------------------------------------------------------------------
+#MIT License
 #
-# Created: 10/02/2017
-# Extended: 12.05.2023
+#Copyright (c) 2023 Lukas Gecas
 #
-# Copyright (C) 2017 Marco Pontello - http://mark0.net/
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
 #
-# Licence:
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
+#The above copyright notice and this permission notice shall be included in all
+#copies or substantial portions of the Software.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#--------------------------------------------------------------------------
-#from reedsolo import RSCodec, ReedSolomonError
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#SOFTWARE.
+#A part of this Software is based on the work of Marco Pontello
+#The base is located at https://github.com/MarcoPon/SeqBox/
+#----------------------------------------------------------------------------------
+
 import creedsolo.creedsolo as crs
 import os
 import sys
@@ -60,6 +62,8 @@ def get_cmdline():
                         help="use random or custom UID (up to 12 hexdigits)")
     parser.add_argument("sbxfilename", action="store", nargs='?',
                         help="SBX container")
+    parser.add_argument("-p", "--password", type=str, default="",
+                        help="encrypt with password", metavar="pass")
     parser.add_argument("-o", "--overwrite", action="store_true", default=False,
                         help="overwrite existing file")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
@@ -211,7 +215,6 @@ def main():
     cmdline = get_cmdline()
     #filename to encode
     filename = cmdline.filename
-    
     #filename which results from encoding
     sbxfilename = cmdline.sbxfilename
 
@@ -242,7 +245,7 @@ def main():
     fin = open(filename, "rb", buffering=1024*1024)
     print("creating file '%s'..." % sbxfilename)
 
-    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver)
+    sbx = seqbox.SbxBlock(uid=cmdline.uid, ver=cmdline.sbxver, pswd=cmdline.password)
 
     #write metadata block 0
     sbx.metadata = {"filesize":filesize,
@@ -258,9 +261,15 @@ def main():
     #write all other blocks
     updatetime = gettime() 
     time_list=[]
+    
+    if cmdline.password:
+        encdec = seqbox.EncDec(cmdline.password, sbx.raw_data_size_read_into_1_block)
+
     while True:
         #Reads data from file 
         buffer = fin.read(sbx.raw_data_size_read_into_1_block)
+        
+        
         #check if last block or file ended
         if len(buffer) < sbx.raw_data_size_read_into_1_block:
             #if file ended and no more data to be read:
@@ -291,16 +300,14 @@ def main():
                 #fill buffer up with padding
                 buffer += b'\x1A'* ((sbx.datasize-sbx.redsize) - len(buffer))
 
-           
+        if cmdline.password:
+            buffer = encdec.xor(buffer)   
+
         sbx.blocknum += 1
         sbx.data = buffer
-        #measure time  
-        START_TIME = gettime()
 
         data = sbx.encode()
-        
-        #calculate time 
-        time_list.append(gettime() - START_TIME)
+       
         #write to file
         fout.write(data)
         
@@ -312,12 +319,7 @@ def main():
     if cmdline.raid:
         print("Copying sbx file")
         shutil.copy2(sbxfilename, sbxfilename+".raid")
-            
-        
-    time_taken = 0
-    for time in time_list:
-        time_taken += time
-    print("total time for Encoding: ", str(time_taken)+ " s")
+
     print("100%  ")
     fin.close()
     fout.close()

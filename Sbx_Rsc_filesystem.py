@@ -1,32 +1,30 @@
 #!/usr/bin/env python3
-'''
-passthroughfs.py - Example file system for pyfuse3
-This file system mirrors the contents of a specified directory tree.
-Caveats:
- * Inode generation numbers are not passed through but set to zero.
- * Block size (st_blksize) and number of allocated blocks (st_blocks) are not
-   passed through.
- * Performance for large directories is not good, because the directory
-   is always read completely.
- * There may be a way to break-out of the directory tree.
- * The readdir implementation is not fully POSIX compliant. If a directory
-   contains hardlinks and is modified during a readdir call, readdir()
-   may return some of the hardlinked files twice or omit them completely.
- * If you delete or rename files in the underlying file system, the
-   passthrough file system will get confused.
-Copyright ©  Nikolaus Rath <Nikolaus.org>
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-'''
+#----------------------------------------------------------------------------------
+#MIT License
+#
+#Copyright (c) 2023 Lukas Gecas
+#
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all
+#copies or substantial portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#SOFTWARE.
+#A part of this Software is based on the work of libufese
+#The base of the passthroughfs.py example is located at 
+#https://github.com/libfuse/pyfuse3/tree/master/examples
+#----------------------------------------------------------------------------------
 import os
 import sys
 import shutil
@@ -526,7 +524,7 @@ class Operations(pyfuse3.Operations):
             else:
                 if not file_path.endswith(".sbx"):
                     print("active",active_sbx_encodings)
-                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx", sbx_version=self.sbx_version)):
+                    if file_path.__contains__(".trashinfo") or (get_hash_of_normal_file(file_path) == get_hash_of_sbx_file(file_path+".sbx", sbx_version=self.sbx_version, raid= self.raid)):
                         print("Hashes Match or file being deleted")
                         fd = os.open(file_path, flags)
                     else:

@@ -1,26 +1,28 @@
 #!/usr/bin/env python3
 
-#--------------------------------------------------------------------------
-# SBXCheck - Sequenced Box container checker - Created by Lukas Gecas
+#----------------------------------------------------------------------------------
+#MIT License
 #
-# Created: 21/06/2023
+#Copyright (c) 2023 Lukas Gecas
 #
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
 #
-# Licence:
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
+#The above copyright notice and this permission notice shall be included in all
+#copies or substantial portions of the Software.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#--------------------------------------------------------------------------
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#SOFTWARE.
+#----------------------------------------------------------------------------------
 
 import creedsolo.creedsolo as crs
 import os
@@ -128,6 +130,8 @@ def get_cmdline():
                         help="use existing raid files for recovery")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
+    parser.add_argument("-p", "--password", type=str, default="",
+                        help="decrypt with password if password used", metavar="pass")
     res = parser.parse_args()
     return res
 
@@ -139,7 +143,7 @@ def get_hash_of_normal_file(path_to_file):
             d.update(buf)
     return d.digest()
 
-def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False):
+def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False, password=""):
     if not os.path.exists(path_to_directory) or not os.path.isdir(path_to_directory):
         print("directory does not exist or is not a directory")
         return
@@ -184,12 +188,8 @@ def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid 
     
     if input_from_user == "y" or input_from_user == "Y" or input_from_user == "Yes" or input_from_user == "yes":
         for file in files_needing_repair:
-            sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid)
+            sbxdec.decode(file+".sbx",filename=file,sbx_ver=sbx_ver, overwrite=True,raid=raid,password=password)
     
-
-
-
-
 def main():
     supported_sbx_versions = [1,2]
     cmdline = get_cmdline()
@@ -199,9 +199,9 @@ def main():
         return print("Folder argument is necessary")
     if not cmdline.recursive:
         
-        check_whole_directory(cmdline.folder,cmdline.sbxver,raid=cmdline.raid)
+        check_whole_directory(cmdline.folder,cmdline.sbxver,raid=cmdline.raid,password=cmdline.password)
     else:
-        check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive,raid=cmdline.raid)
+        check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive,raid=cmdline.raid,password=cmdline.password)
 
 if __name__ == '__main__':
     main()

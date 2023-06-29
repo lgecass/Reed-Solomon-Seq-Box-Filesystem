@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
-
-#--------------------------------------------------------------------------
-# SBXDec - Sequenced Box container Decoder - Extended by Lukas Gecas
+#----------------------------------------------------------------------------------
+#MIT License
 #
-# Created: 03/03/2017 - Extended 12.05.2023
+#Copyright (c) 2023 Lukas Gecas
 #
-# Copyright (C) 2017 Marco Pontello - http://mark0.net/
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
 #
-# Licence:
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
+#The above copyright notice and this permission notice shall be included in all
+#copies or substantial portions of the Software.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#--------------------------------------------------------------------------
-#from reedsolo import RSCodec, ReedSolomonError
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#SOFTWARE.
+#A part of this Software is based on the work of Marco Pontello
+#The base is located at https://github.com/MarcoPon/SeqBox/
+#----------------------------------------------------------------------------------
 import creedsolo.creedsolo as crs
 import os
 import sys
@@ -65,6 +66,8 @@ def get_cmdline():
                         help="Use .raid file to extend decoding capability")
     parser.add_argument("-sv", "--sbxver", type=int, default=1,
                         help="SBX blocks version", metavar="n")
+    parser.add_argument("-p", "--password", type=str, default="",
+                        help="decrypt with password", metavar="pass")
     res = parser.parse_args()
     return res
 
@@ -351,6 +354,7 @@ def main():
                 buffer=bytes(rsc_for_header_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
             except crs.ReedSolomonError:
                 pass
+
     sbx.decode(buffer)
 
     if sbx.blocknum > 1:
@@ -438,7 +442,9 @@ def main():
         count_of_blocks = metadata["filesize"] / sbx.raw_data_size_read_into_1_block
     else:
         count_of_blocks = (metadata["filesize"] - (metadata["filesize"] % sbx.raw_data_size_read_into_1_block)) / sbx.raw_data_size_read_into_1_block
-
+    
+    if cmdline.password:
+        encdec = seqbox.EncDec(cmdline.password, sbx.raw_data_size_read_into_1_block)
     while True:
         buffer = fin.read(sbx.blocksize)
         if raid_exists:
@@ -462,7 +468,9 @@ def main():
             if blocknumber == count_of_blocks+1:
                 #cut padding
                 buffer = buffer[:-metadata["padding_last_block"]]
-                
+            #Decode with password if necessary
+            if cmdline.password:
+                buffer = encdec.xor(buffer)     
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
                 if cmdline.cont:

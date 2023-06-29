@@ -1,4 +1,5 @@
 #!/bin/bash
+sudo apt update -y
 sudo apt install meson ninja-build
 pip install -r requirements.txt
 
