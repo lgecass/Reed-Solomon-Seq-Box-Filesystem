@@ -173,6 +173,19 @@ def test_if_sbxcheck_recovers_data():
         first_byte = file.read(1)
         assert first_byte == b'H'
 
+def test_if_sbxcheck_recovers_data_with_password():
+    os.mkdir("testfolder")
+    create_file("./testfolder/test_file.txt", 'Hello'*200)
+    Encoder.encode(filename="./testfolder/test_file.txt", sbxfilename="./testfolder/test_file.txt.sbx", raid=True, password="1234")
+    data = b'A'*100
+    with open("./testfolder/test_file.txt", "r+b") as file:
+        file.seek(0)  
+        file.write(data[:100]) 
+    sbxChecker.check("./testfolder", auto=True, raid=True, password="1234")
+    with open('./testfolder/test_file.txt', 'rb') as file:
+        first_byte = file.read(1)
+        assert first_byte == b'H'
+
 def test_if_password_encoding_works():
     create_file("test_file_encoding.txt", 'A'*500)
     Encoder.encode(filename="test_file_encoding.txt",sbxfilename="test_file_encoding.txt.sbx", password="1234")
