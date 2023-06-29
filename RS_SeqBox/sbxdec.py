@@ -97,7 +97,7 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
         fin_raid.seek(0,0)
     fin.seek(0, 0)
     
-    sbxver = sbxver
+    sbxver = sbx_ver
     sbx = seqbox.SbxBlock(ver=sbxver)
     metadata = {}
     
