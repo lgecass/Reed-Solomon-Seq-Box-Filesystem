@@ -233,14 +233,19 @@ def decode(sbxfilename,filename=None,password="",overwrite=False,info=False,test
                             buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
             else:
                     buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
+            
+            #Decode with password if necessary
+            if password:
+                #only the data was encoded, so only data should be decoded
+                buffer_data = encdec.xor(buffer[16:])
+                buffer = buffer[:16] + buffer_data
 
             #LastBlock check
             if blocknumber == count_of_blocks+1:
                 #cut padding
                 buffer = buffer[:-metadata["padding_last_block"]]
-            #Decode with password if necessary
-            if password:
-                buffer = encdec.xor(buffer)     
+            
+                 
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
                 if cont:
@@ -468,14 +473,16 @@ def main():
                             buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer_raid[:-sbx.padding_normal_block]))[0])
             else:
                     buffer = bytes(sbx.rsc_for_data_block.decode(bytearray(buffer[:-sbx.padding_normal_block]))[0])
-
+            #Decode with password if necessary
+            if cmdline.password:
+                #only the data was encoded, so only data should be decoded
+                buffer_data = encdec.xor(buffer[16:])
+                buffer = buffer[:16] + buffer_data
             #LastBlock check
             if blocknumber == count_of_blocks+1:
                 #cut padding
                 buffer = buffer[:-metadata["padding_last_block"]]
-            #Decode with password if necessary
-            if cmdline.password:
-                buffer = encdec.xor(buffer)     
+            
             sbx.decode(buffer)
             if sbx.blocknum > lastblocknum+1:
                 if cmdline.cont:

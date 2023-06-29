@@ -173,6 +173,21 @@ def test_if_sbxcheck_recovers_data():
         first_byte = file.read(1)
         assert first_byte == b'H'
 
+def test_if_password_encoding_works():
+    create_file("test_file_encoding.txt", 'A'*500)
+    Encoder.encode(filename="test_file_encoding.txt",sbxfilename="test_file_encoding.txt.sbx", password="1234")
+    with open("test_file_encoding.txt.sbx", "r+b") as file:
+        file.seek(528)  
+        assert file.read(1) == b'p'
+
+def test_if_password_decoding_works():
+    create_file("test_file_encoding.txt", 'A'*500)
+    Encoder.encode(filename="test_file_encoding.txt",sbxfilename="test_file_encoding.txt.sbx", password="1234")
+    Decoder.decode(sbxfilename="test_file_encoding.txt.sbx",filename="test_file_encoding.txt", password="1234",overwrite=True)
+    with open("test_file_encoding.txt", "r+b") as file:
+        file.seek(0)  
+        assert file.read(1) == b'A'            
+
 @pytest.fixture(autouse=True)
 def cleanup():
     yield
@@ -203,3 +218,9 @@ def cleanup():
     
     if os.path.exists("testfolder"):
         os.removedirs("testfolder")
+
+    if os.path.exists("test_file_encoding.txt"):
+        os.remove("test_file_encoding.txt")
+
+    if os.path.exists("test_file_encoding.txt.sbx"):
+        os.remove("test_file_encoding.txt.sbx")
