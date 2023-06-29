@@ -145,7 +145,7 @@ def get_hash_of_normal_file(path_to_file):
             d.update(buf)
     return d.digest()
 
-def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False, password=""):
+def check_whole_directory(path_to_directory, sbx_ver, recursively = False, raid = False, password="", auto=False):
     if not os.path.exists(path_to_directory) or not os.path.isdir(path_to_directory):
         print("directory does not exist or is not a directory")
         return
@@ -207,6 +207,20 @@ def main():
         check_whole_directory(cmdline.folder,cmdline.sbxver,raid=cmdline.raid,password=cmdline.password)
     else:
         check_whole_directory(cmdline.folder,cmdline.sbxver, cmdline.recursive,raid=cmdline.raid,password=cmdline.password)
+def check(folder,sbxver=1,recursive=False,raid=False,password="",auto=False):
+    supported_sbx_versions = [1,2]
+
+    if not supported_sbx_versions.__contains__(sbxver):
+        return print("sbx version not supported")
+    if folder == None:
+        return print("Folder argument is necessary")
+    if not recursive:
+        
+        check_whole_directory(folder,sbxver,raid=raid,password=password,auto=auto)
+    else:
+        check_whole_directory(folder,sbxver, recursive,raid=raid,password=password, auto=auto)
+
+
 
 if __name__ == '__main__':
     main()

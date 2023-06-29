@@ -256,7 +256,6 @@ def main():
     
     #write all other blocks
     updatetime = gettime() 
-    time_list=[]
     
     if cmdline.password:
         encdec = seqbox.EncDec(cmdline.password, sbx.raw_data_size_read_into_1_block)
